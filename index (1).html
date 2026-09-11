@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>コーデガチャ - ファッション提案アプリ</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* カスタムアニメーション */
+    @keyframes pulse-slow {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 3s infinite ease-in-out;
+    }
+    
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin-slow {
+      animation: spin-slow 1.5s linear infinite;
+    }
+    
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fade-in 0.3s ease-out forwards;
+    }
+
+    /* トースト通知用アニメーション */
+    @keyframes slide-up-fade {
+      0% { opacity: 0; transform: translate(-50%, 20px); }
+      10% { opacity: 1; transform: translate(-50%, 0); }
+      90% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -20px); }
+    }
+    .animate-toast {
+      animation: slide-up-fade 3s ease-in-out forwards;
+    }
+
+    /* スクロールバー非表示（Webkit系） */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-pink-200 flex items-center justify-center min-h-screen font-sans text-gray-800">
+
+  <!-- スマホサイズのコンテナ -->
+  <div class="relative w-full max-w-[400px] h-[800px] max-h-screen bg-pink-50 overflow-hidden shadow-2xl sm:rounded-[2.5rem] sm:border-8 border-gray-900 flex flex-col">
+    
+    <!-- =========================================
+         トップ画面 (Home) 
+         ========================================= -->
+    <div id="home-screen" class="relative flex-1 w-full h-full p-5 flex flex-col justify-between items-center">
+      
+      <!-- 上部エリア（左上・右上） -->
+      <div class="w-full flex justify-between items-start z-10 gap-2">
+        <!-- 【左上】カレンダー -->
+        <button onclick="openCalendar()" class="flex-1 max-w-[48%] flex flex-col bg-white p-2.5 rounded-2xl shadow-sm border border-gray-100 active:scale-95 transition-transform text-left">
+          <div class="flex items-center gap-1.5 text-rose-500 font-bold mb-0.5">
+            <i data-lucide="calendar" class="w-4 h-4 shrink-0"></i>
+            <span id="home-calendar-date-text" class="text-xs">9/10 (木)</span>
+          </div>
+          <div id="home-schedule-text" class="text-[11px] text-gray-500 font-medium truncate w-full">
+            19:00〜 友人とお出かけ
+          </div>
+        </button>
+
+        <!-- 【右上】天気予報 (現在地連携対応) -->
+        <button onclick="getWeatherInfo(true)" title="タップして天気を更新" class="flex-1 max-w-[48%] flex items-center justify-between gap-2 bg-gradient-to-br from-orange-50 to-orange-100 p-2.5 rounded-2xl shadow-sm border border-orange-200 active:scale-95 transition-transform text-left">
+          <div id="weather-icon-container" class="text-orange-500 shrink-0">
+            <i data-lucide="sun" class="w-6 h-6"></i>
+          </div>
+          <div class="flex flex-col items-end min-w-0 flex-1">
+            <span id="weather-temp" class="text-lg font-black leading-none text-gray-800">--°</span>
+            <span id="weather-desc" class="text-[10px] text-gray-600 font-medium mt-1 truncate w-full text-right">天気取得中...</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- 中央エリア（コーデガチャ） -->
+      <div class="my-auto py-2 flex flex-col items-center justify-center z-10">
+        <button id="gacha-btn" onclick="startGacha()" class="relative group flex items-center justify-center w-48 h-48 sm:w-52 sm:h-52 rounded-full shadow-[0_20px_50px_rgba(236,72,153,0.3)] bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 active:scale-95 transition-all duration-300 hover:scale-105 animate-pulse-slow">
+          
+          <!-- ボタンの内側の装飾 -->
+          <div class="absolute inset-2 rounded-full border-4 border-white/20"></div>
+          
+          <div class="flex flex-col items-center text-white">
+            
+            <!-- 通常時アイコン -->
+            <div id="icon-wand" class="mb-1 group-hover:rotate-12 transition-transform">
+              <i data-lucide="wand-2" class="w-12 h-12"></i>
+            </div>
+            
+            <!-- ガチャ中アイコン（初期非表示） -->
+            <div id="icon-spinner" class="mb-1 animate-spin hidden">
+              <i data-lucide="refresh-ccw" class="w-10 h-10"></i>
+            </div>
+
+            <span id="gacha-text" class="text-xl font-black tracking-wider">コーデガチャ</span>
+            <span id="gacha-subtext" class="text-[10px] font-medium opacity-80 mt-0.5">TAP TO SPIN</span>
+          </div>
+        </button>
+        
+        <p class="mt-4 text-xs font-medium text-gray-500 text-center px-4 leading-relaxed">
+          今日の天気と予定に合わせて<br>あなたの服から自動提案します
+        </p>
+      </div>
+
+      <!-- 下部エリア（左下・右下） -->
+      <div class="w-full flex justify-between items-end z-10 pb-2">
+        <!-- 【左下】マイクローゼット（写真） -->
+        <button onclick="openCloset()" class="flex flex-col items-center gap-2 bg-white/80 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-100 active:scale-95 transition-transform w-[110px]">
+          <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+            <i data-lucide="camera" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-700">クローゼット</span>
+        </button>
+
+        <!-- 【右下】服屋の情報 -->
+        <button onclick="openShop()" class="flex flex-col items-center gap-2 bg-white/80 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-100 active:scale-95 transition-transform w-[110px]">
+          <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+            <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-700">服屋を探す</span>
+        </button>
+      </div>
+    </div>
+
+
+    <!-- =========================================
+         提案結果画面 (Result) 
+         ========================================= -->
+    <div id="result-screen" class="absolute inset-0 bg-white z-50 flex flex-col animate-fade-in hidden">
+      <!-- ヘッダー -->
+      <div class="p-4 flex items-center border-b border-gray-100">
+        <button onclick="returnHome()" class="p-2 -ml-2 text-gray-500 active:bg-gray-100 rounded-full transition-colors">
+          <i data-lucide="chevron-left" class="w-6 h-6"></i>
+        </button>
+        <h2 class="text-lg font-bold mx-auto pr-8">今日の提案コーデ</h2>
+      </div>
+      
+      <!-- メインコンテンツ -->
+      <div class="flex-1 overflow-y-auto no-scrollbar p-6 flex flex-col gap-6">
+        
+        <!-- メッセージ -->
+        <div class="bg-pink-50 text-pink-700 p-4 rounded-2xl text-sm font-medium leading-relaxed">
+          今日は気温が高いので、爽やかなモノトーンコーデがおすすめです！
+        </div>
+
+        <!-- コーディネートアイテム一覧 -->
+        <div class="flex flex-col gap-4">
+          <!-- トップス -->
+          <div class="flex items-center gap-4 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+            <div class="w-20 h-20 rounded-xl bg-slate-100 shadow-inner flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+              Tops
+            </div>
+            <div class="flex-1">
+              <p class="text-xs text-gray-500 mb-1">トップス</p>
+              <p class="font-bold text-gray-800">白のオーバーサイズTシャツ</p>
+            </div>
+          </div>
+          
+          <!-- ボトムス -->
+          <div class="flex items-center gap-4 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+            <div class="w-20 h-20 rounded-xl bg-zinc-800 shadow-inner flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+              Bottoms
+            </div>
+            <div class="flex-1">
+              <p class="text-xs text-gray-500 mb-1">ボトムス</p>
+              <p class="font-bold text-gray-800">黒のテーパードスラックス</p>
+            </div>
+          </div>
+
+          <!-- シューズ -->
+          <div class="flex items-center gap-4 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+            <div class="w-20 h-20 rounded-xl bg-white shadow-inner flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+              Shoes
+            </div>
+            <div class="flex-1">
+              <p class="text-xs text-gray-500 mb-1">シューズ</p>
+              <p class="font-bold text-gray-800">白のレザースニーカー</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- おすすめアイテム（ショップ連携） -->
+        <div class="mt-2 border-t border-gray-100 pt-6">
+          <h3 class="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2">
+            <i data-lucide="map-pin" class="w-4 h-4"></i> このコーデに合う小物を探す
+          </h3>
+          <div class="bg-gradient-to-r from-emerald-500 to-teal-500 p-4 rounded-2xl text-white flex justify-between items-center shadow-md active:scale-95 transition-transform cursor-pointer" onclick="openShop()">
+            <div>
+              <p class="font-bold">サコッシュバッグ</p>
+              <p class="text-xs opacity-90 mt-1">近くの店舗で取扱中</p>
+            </div>
+            <i data-lucide="chevron-left" class="w-5 h-5 rotate-180"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="p-4 bg-white border-t border-gray-100 flex gap-3 pb-8">
+        <button onclick="startGachaFromResut()" class="flex-1 py-4 bg-gray-100 text-gray-700 font-bold rounded-2xl active:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+          <i data-lucide="refresh-ccw" class="w-4 h-4"></i> やり直す
+        </button>
+        <button onclick="decideOutfit()" class="flex-1 py-4 bg-gray-900 text-white font-bold rounded-2xl active:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg">
+          <i data-lucide="check" class="w-4 h-4"></i> これを着る
+        </button>
+      </div>
+    </div>
+
+    <!-- =========================================
+         マイクローゼット画面 (Closet) 
+         ========================================= -->
+    <div id="closet-screen" class="absolute inset-0 bg-white z-50 flex flex-col animate-fade-in hidden">
+      <!-- ヘッダー -->
+      <div class="p-4 flex items-center justify-between border-b border-gray-100">
+        <button onclick="closeCloset()" class="p-2 -ml-2 text-gray-500 active:bg-gray-100 rounded-full transition-colors">
+          <i data-lucide="chevron-left" class="w-6 h-6"></i>
+        </button>
+        <h2 class="text-lg font-bold">マイクローゼット</h2>
+        <button onclick="openCamera()" class="p-2 -mr-2 text-blue-500 active:bg-blue-50 rounded-full transition-colors">
+          <i data-lucide="plus" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- タブナビゲーション -->
+      <div class="flex border-b border-gray-100 px-4">
+        <button onclick="switchTab('tops')" id="tab-tops" class="flex-1 py-3 text-sm font-bold border-b-2 border-gray-900 text-gray-900 transition-colors">Tops</button>
+        <button onclick="switchTab('bottoms')" id="tab-bottoms" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 transition-colors">Bottoms</button>
+        <button onclick="switchTab('shoes')" id="tab-shoes" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 transition-colors">Shoes</button>
+      </div>
+
+      <!-- アイテム一覧エリア -->
+      <div class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50">
+        
+        <!-- トップス一覧 -->
+        <div id="content-tops" class="grid grid-cols-2 gap-4">
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+            <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <div class="w-full aspect-square bg-slate-100 rounded-xl mb-2 shadow-inner border border-gray-200"></div>
+            <p class="text-xs font-bold text-gray-700 text-center">白オーバーサイズT</p>
+          </div>
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+            <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <div class="w-full aspect-square bg-blue-100 rounded-xl mb-2 shadow-inner border border-gray-200"></div>
+            <p class="text-xs font-bold text-gray-700 text-center">ストライプシャツ</p>
+          </div>
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+            <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <div class="w-full aspect-square bg-stone-800 rounded-xl mb-2 shadow-inner border border-gray-200"></div>
+            <p class="text-xs font-bold text-gray-700 text-center">黒ニット</p>
+          </div>
+        </div>
+        
+        <!-- ボトムス一覧 -->
+        <div id="content-bottoms" class="grid grid-cols-2 gap-4 hidden">
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+            <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <div class="w-full aspect-square bg-blue-800 rounded-xl mb-2 shadow-inner border border-gray-200"></div>
+            <p class="text-xs font-bold text-gray-700 text-center">インディゴデニム</p>
+          </div>
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+            <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <div class="w-full aspect-square bg-zinc-800 rounded-xl mb-2 shadow-inner border border-gray-200"></div>
+            <p class="text-xs font-bold text-gray-700 text-center">黒テーパード</p>
+          </div>
+        </div>
+        
+        <!-- シューズ一覧 -->
+        <div id="content-shoes" class="grid grid-cols-2 gap-4 hidden">
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+            <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <div class="w-full aspect-square bg-white rounded-xl mb-2 shadow-inner border border-gray-200"></div>
+            <p class="text-xs font-bold text-gray-700 text-center">白レザースニーカー</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- =========================================
+         ショップ情報画面 (Shop) 
+         ========================================= -->
+    <div id="shop-screen" class="absolute inset-0 bg-white z-50 flex flex-col animate-fade-in hidden">
+      <!-- ヘッダー -->
+      <div class="p-4 flex items-center border-b border-gray-100">
+        <button onclick="closeShop()" class="p-2 -ml-2 text-gray-500 active:bg-gray-100 rounded-full transition-colors">
+          <i data-lucide="chevron-left" class="w-6 h-6"></i>
+        </button>
+        <h2 class="text-lg font-bold mx-auto pr-8">周辺の服屋</h2>
+      </div>
+
+      <!-- 店舗リストエリア -->
+      <div class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50 flex flex-col gap-4">
+        
+        <!-- 店舗1: minami -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="font-bold text-gray-800 text-base">minami</h3>
+              <p class="text-xs text-gray-500 mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> 2.7 km 先</p>
+            </div>
+            <span class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">営業中</span>
+          </div>
+          
+          <div class="flex gap-3 overflow-x-auto no-scrollbar py-1">
+            <div class="flex-shrink-0 w-20 flex flex-col items-center gap-1">
+              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=200&q=80" alt="シャツ" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/200x200/e2e8f0/475569?text=Shirt'">
+              </div>
+              <span class="text-[11px] font-bold text-gray-700 truncate w-full text-center">ルーズシャツ</span>
+              <span class="text-[10px] text-pink-600 font-bold">¥4,900</span>
+            </div>
+            <div class="flex-shrink-0 w-20 flex flex-col items-center gap-1">
+              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=200&q=80" alt="ニット" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/200x200/e2e8f0/475569?text=Knit'">
+              </div>
+              <span class="text-[11px] font-bold text-gray-700 truncate w-full text-center">ニットベスト</span>
+              <span class="text-[10px] text-pink-600 font-bold">¥5,500</span>
+            </div>
+            <div class="flex-shrink-0 w-20 flex flex-col items-center gap-1">
+              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1582552938357-32b906df40cb?auto=format&fit=crop&w=200&q=80" alt="デニムスカート" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/200x200/e2e8f0/475569?text=Skirt'">
+              </div>
+              <span class="text-[11px] font-bold text-gray-700 truncate w-full text-center">デニムスカート</span>
+              <span class="text-[10px] text-pink-600 font-bold">¥6,800</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center mt-1 pt-3 border-t border-gray-50">
+            <div class="text-xs text-gray-500 flex flex-col gap-1">
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> 10:00〜19:00</span>
+            </div>
+            <a href="https://saijo.mypl.net/shop/00000379236/" target="_blank" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700 flex items-center gap-1">
+              詳細 <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- 店舗2: キャマラド -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="font-bold text-gray-800 text-base">キャマラド</h3>
+              <p class="text-xs text-gray-500 mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> 2.0 km 先</p>
+            </div>
+            <span class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">営業中</span>
+          </div>
+
+          <div class="flex gap-3 overflow-x-auto no-scrollbar py-1">
+            <div class="flex-shrink-0 w-20 flex flex-col items-center gap-1">
+              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=200&q=80" alt="ワンピース" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/200x200/e2e8f0/475569?text=Dress'">
+              </div>
+              <span class="text-[11px] font-bold text-gray-700 truncate w-full text-center">ワンピース</span>
+              <span class="text-[10px] text-pink-600 font-bold">¥8,900</span>
+            </div>
+            <div class="flex-shrink-0 w-20 flex flex-col items-center gap-1">
+              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=200&q=80" alt="ブラウス" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/200x200/e2e8f0/475569?text=Blouse'">
+              </div>
+              <span class="text-[11px] font-bold text-gray-700 truncate w-full text-center">ブラウス</span>
+              <span class="text-[10px] text-pink-600 font-bold">¥6,000</span>
+            </div>
+            <div class="flex-shrink-0 w-20 flex flex-col items-center gap-1">
+              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=200&q=80" alt="カーディガン" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/200x200/e2e8f0/475569?text=Cardigan'">
+              </div>
+              <span class="text-[11px] font-bold text-gray-700 truncate w-full text-center">カーディガン</span>
+              <span class="text-[10px] text-pink-600 font-bold">¥7,200</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center mt-1 pt-3 border-t border-gray-50">
+            <div class="text-xs text-gray-500 flex flex-col gap-1">
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> 11:00〜18:00</span>
+            </div>
+            <a href="https://instagram.com/0125camarade/" target="_blank" class="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700 flex items-center gap-1">
+              詳細 <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- =========================================
+         カメラ・服追加画面 (Camera) 
+         ========================================= -->
+    <div id="camera-screen" class="absolute inset-0 bg-gray-900 z-[60] flex flex-col animate-fade-in hidden">
+      <!-- フラッシュ演出用オーバーレイ -->
+      <div id="camera-flash" class="absolute inset-0 bg-white z-20 pointer-events-none opacity-0"></div>
+
+      <!-- カメラビュー -->
+      <div class="relative flex-1 bg-black overflow-hidden flex flex-col">
+        <video id="camera-video" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline></video>
+        <canvas id="camera-canvas" class="hidden"></canvas>
+
+        <!-- ヘッダー (透過) -->
+        <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 to-transparent">
+          <button onclick="closeCamera()" class="p-2 text-white active:bg-white/20 rounded-full transition-colors">
+            <i data-lucide="x" class="w-6 h-6"></i>
+          </button>
+          <div class="text-white font-medium text-sm">服を追加</div>
+          <div class="w-10"></div>
+        </div>
+
+        <!-- 撮影ガイド枠 -->
+        <div class="absolute inset-0 flex items-center justify-center p-8 pointer-events-none z-10">
+          <div class="w-full aspect-[3/4] max-h-[60%] border-2 border-dashed border-white/50 rounded-3xl flex items-center justify-center">
+            <p class="text-white/70 text-xs font-medium bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm">
+              枠内に服を収めて撮影してください
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下部シャッターコントロール -->
+      <div class="h-32 bg-black flex items-center justify-center relative z-10 px-8 pb-4">
+        <button onclick="takePhoto()" class="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform">
+          <div class="w-16 h-16 rounded-full bg-white active:bg-gray-200"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- =========================================
+         カレンダー・予定登録画面 (Calendar) 
+         ========================================= -->
+    <div id="calendar-screen" class="absolute inset-0 bg-white z-[55] flex flex-col animate-fade-in hidden">
+      <!-- ヘッダー -->
+      <div class="p-4 flex items-center border-b border-gray-100 bg-white">
+        <button onclick="closeCalendar()" class="p-2 -ml-2 text-gray-500 active:bg-gray-100 rounded-full transition-colors">
+          <i data-lucide="chevron-left" class="w-6 h-6"></i>
+        </button>
+        <h2 class="text-lg font-bold mx-auto pr-8">カレンダー＆予定</h2>
+      </div>
+
+      <!-- スクロールエリア -->
+      <div class="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4 bg-gray-50">
+        
+        <!-- 月切り替えコントロール -->
+        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+          <button onclick="changeMonth(-1)" class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+          </button>
+          <span id="calendar-month-label" class="font-bold text-gray-800 text-sm sm:text-base">2026年 9月</span>
+          <button onclick="changeMonth(1)" class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+            <i data-lucide="chevron-right" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- 月間カレンダー表示 -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-gray-400 mb-2">
+            <span class="text-rose-500">日</span>
+            <span>月</span>
+            <span>火</span>
+            <span>水</span>
+            <span>木</span>
+            <span>金</span>
+            <span class="text-blue-500">土</span>
+          </div>
+          <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 text-center text-xs font-semibold">
+            <!-- 動的挿入 -->
+          </div>
+        </div>
+
+        <!-- 選択日の予定管理カード -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+          <div class="flex items-center justify-between border-b border-gray-100 pb-2.5">
+            <h3 id="selected-date-title" class="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-4 h-4 text-rose-500"></i>
+              9月10日 (木) の予定
+            </h3>
+            <span id="schedule-count-badge" class="text-[10px] bg-rose-100 text-rose-600 font-bold px-2 py-0.5 rounded-full">1件</span>
+          </div>
+
+          <!-- 登録済み予定リスト -->
+          <div id="schedule-list" class="flex flex-col gap-2 my-1">
+            <!-- JS挿入 -->
+          </div>
+
+          <!-- 新規予定入力フォーム -->
+          <div class="pt-3 border-t border-gray-100 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-bold text-gray-700">新しい予定を追加</p>
+              <button onclick="addScheduleInputRow()" class="text-xs text-rose-500 hover:text-rose-600 font-bold flex items-center gap-1 active:scale-95 transition-transform">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> 枠を増やす
+              </button>
+            </div>
+            
+            <div id="schedule-inputs-container" class="flex flex-col gap-2">
+              <!-- 動的挿入 -->
+            </div>
+
+            <button onclick="addSchedules()" class="w-full py-2.5 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white font-bold text-xs rounded-xl active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1 mt-1">
+              <i data-lucide="check" class="w-4 h-4"></i> 予定を一括で追加する
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast-message" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white px-6 py-3 rounded-full shadow-xl z-[70] flex items-center gap-2 pointer-events-none hidden">
+      <i data-lucide="check-circle-2" class="w-5 h-5 text-green-400"></i>
+      <span class="text-sm font-bold">今日のコーデを決定しました！</span>
+    </div>
+
+  </div>
+
+  <script>
+    // Lucideアイコンの初期化
+    lucide.createIcons();
+
+    // DOM要素の取得
+    const homeScreen = document.getElementById('home-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const gachaBtn = document.getElementById('gacha-btn');
+    const iconWand = document.getElementById('icon-wand');
+    const iconSpinner = document.getElementById('icon-spinner');
+    const gachaText = document.getElementById('gacha-text');
+    const gachaSubtext = document.getElementById('gacha-subtext');
+    const closetScreen = document.getElementById('closet-screen');
+    const shopScreen = document.getElementById('shop-screen');
+    const cameraScreen = document.getElementById('camera-screen');
+    const toastMessage = document.getElementById('toast-message');
+    const homeScheduleText = document.getElementById('home-schedule-text');
+    const homeCalendarDateText = document.getElementById('home-calendar-date-text');
+
+    // カレンダー画面用DOM要素
+    const calendarScreen = document.getElementById('calendar-screen');
+    const calendarDaysGrid = document.getElementById('calendar-days-grid');
+    const calendarMonthLabel = document.getElementById('calendar-month-label');
+    const selectedDateTitle = document.getElementById('selected-date-title');
+    const scheduleList = document.getElementById('schedule-list');
+    const scheduleCountBadge = document.getElementById('schedule-count-badge');
+
+    // 状態管理
+    let currentCalYear = 2026;
+    let currentCalMonth = 8; // 0=1月, 8=9月
+    let selectedDateStr = '2026-09-10'; // フォーマット: YYYY-MM-DD
+    let currentActiveTab = 'tops';
+
+    // 予定データストア
+    let schedulesData = {
+      '2026-09-10': [
+        { id: 's1', time: '19:00', title: '友人とお出かけ' }
+      ]
+    };
+
+    // 天気表示エレメント
+    const weatherTemp = document.getElementById('weather-temp');
+    const weatherDesc = document.getElementById('weather-desc');
+    const weatherIconContainer = document.getElementById('weather-icon-container');
+
+    // カメラ機能用
+    const cameraVideo = document.getElementById('camera-video');
+    const cameraCanvas = document.getElementById('camera-canvas');
+    let currentStream = null;
+
+    function parseWmoWeatherCode(code) {
+      if (code === 0) return { text: '晴れ', icon: 'sun', color: 'text-orange-500' };
+      if (code >= 1 && code <= 3) return { text: '晴れ時々曇り', icon: 'cloud-sun', color: 'text-amber-500' };
+      if (code === 45 || code === 48) return { text: '霧', icon: 'cloud-fog', color: 'text-slate-400' };
+      if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { text: '雨', icon: 'cloud-rain', color: 'text-blue-500' };
+      if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return { text: '雪', icon: 'snowflake', color: 'text-cyan-400' };
+      if (code >= 95) return { text: '雷雨', icon: 'cloud-lightning', color: 'text-purple-600' };
+      return { text: '曇り', icon: 'cloud', color: 'text-gray-500' };
+    }
+
+    async function fetchWeatherData(lat, lon, locationName) {
+      try {
+        weatherDesc.innerText = `${locationName}: 取得中...`;
+        
+        const response = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=precipitation_probability&timezone=Asia%2FTokyo`
+        );
+        const data = await response.json();
+
+        if (data && data.current_weather) {
+          const temp = Math.round(data.current_weather.temperature);
+          const weatherCode = data.current_weather.weathercode;
+          const weatherInfo = parseWmoWeatherCode(weatherCode);
+
+          const currentHour = new Date().getHours();
+          const pop = data.hourly && data.hourly.precipitation_probability 
+            ? data.hourly.precipitation_probability[currentHour] || 10 
+            : 10;
+
+          weatherTemp.innerText = `${temp}°`;
+          weatherDesc.innerText = `${locationName}: ${weatherInfo.text} / 降水 ${pop}%`;
+          
+          weatherIconContainer.className = weatherInfo.color;
+          weatherIconContainer.innerHTML = `<i data-lucide="${weatherInfo.icon}" class="w-7 h-7"></i>`;
+          lucide.createIcons();
+        }
+      } catch (err) {
+        console.error("天気データの取得に失敗しました:", err);
+        weatherDesc.innerText = `${locationName}: 晴れ / 降水 10%`;
+        weatherTemp.innerText = `31°`;
+      }
+    }
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ja`);
+        const data = await res.json();
+        return data.city || data.locality || data.principalSubdivision || '現在地';
+      } catch (e) {
+        return '現在地';
+      }
+    }
+
+    function getWeatherInfo(isUserAction = false) {
+      const defaultLat = 33.9189; // 愛媛県西条市
+      const defaultLon = 133.1818;
+      const defaultCity = '西条市';
+
+      if (isUserAction) {
+        weatherDesc.innerText = '位置情報を更新中...';
+      }
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const cityName = await reverseGeocode(lat, lon);
+            fetchWeatherData(lat, lon, cityName);
+          },
+          (error) => {
+            console.warn("位置情報が取得できないためデフォルトを使用します。", error.message);
+            fetchWeatherData(defaultLat, defaultLon, defaultCity);
+          },
+          { timeout: 8000 }
+        );
+      } else {
+        fetchWeatherData(defaultLat, defaultLon, defaultCity);
+      }
+    }
+
+    function openCalendar() {
+      homeScreen.classList.add('hidden');
+      calendarScreen.classList.remove('hidden');
+      renderCalendar();
+      renderSchedules();
+      resetScheduleInputRows();
+      lucide.createIcons();
+    }
+
+    function closeCalendar() {
+      calendarScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+      updateHomeCalendarWidget();
+    }
+
+    function changeMonth(delta) {
+      currentCalMonth += delta;
+      if (currentCalMonth < 0) {
+        currentCalMonth = 11;
+        currentCalYear--;
+      } else if (currentCalMonth > 11) {
+        currentCalMonth = 0;
+        currentCalYear++;
+      }
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      calendarMonthLabel.innerText = `${currentCalYear}年 ${currentCalMonth + 1}月`;
+      calendarDaysGrid.innerHTML = '';
+
+      const firstDay = new Date(currentCalYear, currentCalMonth, 1).getDay();
+      const daysInMonth = new Date(currentCalYear, currentCalMonth + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'h-10';
+        calendarDaysGrid.appendChild(emptyCell);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const monthStr = String(currentCalMonth + 1).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        const dateKey = `${currentCalYear}-${monthStr}-${dayStr}`;
+
+        const isSelected = dateKey === selectedDateStr;
+        const hasSchedule = schedulesData[dateKey] && schedulesData[dateKey].length > 0;
+
+        const dayBtn = document.createElement('button');
+        dayBtn.type = 'button';
+        dayBtn.onclick = () => selectDate(dateKey);
+
+        let baseStyle = "h-10 rounded-xl flex flex-col items-center justify-center relative transition-all active:scale-90 ";
+        if (isSelected) {
+          baseStyle += "bg-rose-500 text-white font-bold shadow-md";
+        } else {
+          baseStyle += "hover:bg-gray-100 text-gray-700 font-medium";
+        }
+
+        dayBtn.className = baseStyle;
+        dayBtn.innerHTML = `
+          <span>${day}</span>
+          ${hasSchedule ? `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-rose-500'} absolute bottom-1"></span>` : ''}
+        `;
+
+        calendarDaysGrid.appendChild(dayBtn);
+      }
+    }
+
+    function selectDate(dateKey) {
+      selectedDateStr = dateKey;
+      renderCalendar();
+      renderSchedules();
+      resetScheduleInputRows();
+    }
+
+    function renderSchedules() {
+      const parts = selectedDateStr.split('-');
+      const month = parseInt(parts[1]);
+      const day = parseInt(parts[2]);
+      const dateObj = new Date(parseInt(parts[0]), month - 1, day);
+      const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+
+      if (selectedDateTitle) {
+        selectedDateTitle.innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-rose-500"></i> ${month}月${day}日 (${weekDays[dateObj.getDay()]}) の予定`;
+      }
+
+      const list = schedulesData[selectedDateStr] || [];
+      if (scheduleCountBadge) {
+        scheduleCountBadge.innerText = `${list.length}件`;
+      }
+
+      if (!scheduleList) return;
+      scheduleList.innerHTML = '';
+
+      if (list.length === 0) {
+        scheduleList.innerHTML = `<p class="text-xs text-gray-400 text-center py-3">この日の予定はありません</p>`;
+      } else {
+        list.forEach(item => {
+          const itemEl = document.createElement('div');
+          itemEl.className = "flex items-center justify-between bg-rose-50/50 p-2.5 rounded-xl border border-rose-100 text-xs";
+          itemEl.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-rose-600 shrink-0">${item.time}</span>
+              <span class="text-gray-800 font-medium">${item.title}</span>
+            </div>
+            <button onclick="deleteSchedule('${item.id}')" class="text-gray-400 hover:text-rose-600 p-1 rounded-lg transition-colors">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          `;
+          scheduleList.appendChild(itemEl);
+        });
+      }
+      lucide.createIcons();
+    }
+
+    function addSchedules() {
+      const container = document.getElementById('schedule-inputs-container');
+      if (!container) return;
+      const rows = container.querySelectorAll('.schedule-input-row');
+      let addedCount = 0;
+
+      if (!schedulesData[selectedDateStr]) {
+        schedulesData[selectedDateStr] = [];
+      }
+
+      rows.forEach(row => {
+        const timeInput = row.querySelector('.schedule-time-input');
+        const titleInput = row.querySelector('.schedule-title-input');
+        const time = timeInput ? timeInput.value.trim() : '';
+        const title = titleInput ? titleInput.value.trim() : '';
+
+        if (title) {
+          schedulesData[selectedDateStr].push({
+            id: 's_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            time: time || '終日',
+            title: title
+          });
+          addedCount++;
+        }
+      });
+
+      if (addedCount > 0) {
+        resetScheduleInputRows();
+        renderCalendar();
+        renderSchedules();
+        updateHomeCalendarWidget();
+      }
+    }
+
+    function resetScheduleInputRows() {
+      const container = document.getElementById('schedule-inputs-container');
+      if (!container) return;
+      container.innerHTML = '';
+      addScheduleInputRow();
+    }
+
+    function addScheduleInputRow() {
+      const container = document.getElementById('schedule-inputs-container');
+      if (!container) return;
+
+      const rowId = 'row_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      const rowEl = document.createElement('div');
+      rowEl.id = rowId;
+      rowEl.className = "schedule-input-row flex gap-2 items-center animate-fade-in";
+      rowEl.innerHTML = `
+        <input type="time" value="12:00" class="schedule-time-input border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-800 focus:outline-none focus:border-rose-400 bg-gray-50 font-medium shrink-0">
+        <input type="text" placeholder="例: ランチ、ショッピング" class="schedule-title-input flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-rose-400 bg-gray-50">
+        <button onclick="removeScheduleInputRow('${rowId}')" class="text-gray-300 hover:text-rose-500 p-1 rounded-lg transition-colors shrink-0" title="削除">
+          <i data-lucide="minus-circle" class="w-4 h-4"></i>
+        </button>
+      `;
+      container.appendChild(rowEl);
+      lucide.createIcons();
+    }
+
+    function removeScheduleInputRow(rowId) {
+      const container = document.getElementById('schedule-inputs-container');
+      if (!container) return;
+      const rows = container.querySelectorAll('.schedule-input-row');
+      
+      if (rows.length > 1) {
+        const row = document.getElementById(rowId);
+        if (row) row.remove();
+      } else {
+        const row = document.getElementById(rowId);
+        if (row) {
+          const titleInput = row.querySelector('.schedule-title-input');
+          if (titleInput) titleInput.value = '';
+        }
+      }
+    }
+
+    function deleteSchedule(id) {
+      if (schedulesData[selectedDateStr]) {
+        schedulesData[selectedDateStr] = schedulesData[selectedDateStr].filter(item => item.id !== id);
+        renderCalendar();
+        renderSchedules();
+        updateHomeCalendarWidget();
+      }
+    }
+
+    function updateHomeCalendarWidget() {
+      const parts = selectedDateStr.split('-');
+      const month = parseInt(parts[1]);
+      const day = parseInt(parts[2]);
+      const dateObj = new Date(parseInt(parts[0]), month - 1, day);
+      const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+
+      if (homeCalendarDateText) {
+        homeCalendarDateText.innerText = `${month}/${day} (${weekDays[dateObj.getDay()]})`;
+      }
+
+      const todayList = schedulesData[selectedDateStr] || [];
+      if (homeScheduleText) {
+        if (todayList.length > 0) {
+          homeScheduleText.innerText = `${todayList[0].time}〜 ${todayList[0].title}`;
+        } else {
+          homeScheduleText.innerText = '予定なし';
+        }
+      }
+    }
+
+    function startGacha() {
+      gachaBtn.disabled = true;
+      gachaBtn.classList.remove('hover:scale-105', 'animate-pulse-slow');
+      gachaBtn.classList.add('animate-spin-slow', 'opacity-90');
+      
+      iconWand.classList.add('hidden');
+      iconSpinner.classList.remove('hidden');
+      
+      gachaText.innerText = 'Thinking...';
+      gachaSubtext.classList.add('hidden');
+
+      setTimeout(() => {
+        homeScreen.classList.add('hidden');
+        resultScreen.classList.remove('hidden');
+        resetGachaButton();
+      }, 1500);
+    }
+
+    function startGachaFromResut() {
+      returnHome();
+      setTimeout(() => {
+        startGacha();
+      }, 50);
+    }
+
+    function returnHome() {
+      resultScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+    }
+
+    function decideOutfit() {
+      returnHome();
+
+      homeScheduleText.innerHTML = '<span class="text-pink-600 font-bold flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i>コーデ決定済み</span>';
+      lucide.createIcons();
+
+      toastMessage.classList.remove('hidden');
+      toastMessage.classList.add('animate-toast');
+
+      setTimeout(() => {
+        toastMessage.classList.remove('animate-toast');
+        toastMessage.classList.add('hidden');
+      }, 3000);
+    }
+
+    function openCloset() {
+      homeScreen.classList.add('hidden');
+      closetScreen.classList.remove('hidden');
+    }
+
+    function closeCloset() {
+      closetScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+    }
+
+    function openShop() {
+      homeScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      shopScreen.classList.remove('hidden');
+    }
+
+    function closeShop() {
+      shopScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+    }
+
+    async function openCamera() {
+      cameraScreen.classList.remove('hidden');
+      lucide.createIcons(); 
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' },
+          audio: false 
+        });
+        currentStream = stream;
+        cameraVideo.srcObject = stream;
+      } catch (err) {
+        console.error("カメラの起動に失敗しました:", err);
+      }
+    }
+
+    function closeCamera() {
+      cameraScreen.classList.add('hidden');
+
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+        cameraVideo.srcObject = null;
+      }
+    }
+
+    function takePhoto() {
+      if (currentStream) {
+        const flash = document.getElementById('camera-flash');
+        if (flash) {
+          flash.style.transition = 'none';
+          flash.classList.remove('opacity-0');
+          flash.classList.add('opacity-100');
+          setTimeout(() => {
+            flash.style.transition = 'opacity 0.3s ease-out';
+            flash.classList.remove('opacity-100');
+            flash.classList.add('opacity-0');
+          }, 50);
+        }
+
+        cameraCanvas.width = cameraVideo.videoWidth || 640;
+        cameraCanvas.height = cameraVideo.videoHeight || 480;
+        const ctx = cameraCanvas.getContext('2d');
+        ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+        
+        const imageData = cameraCanvas.toDataURL('image/jpeg');
+
+        const container = document.getElementById(`content-${currentActiveTab}`);
+        if (container) {
+          const newItemHTML = `
+            <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative animate-fade-in">
+              <button onclick="deleteItem(this)" class="absolute top-1.5 right-1.5 z-10 w-6 h-6 bg-gray-900/60 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-sm" title="削除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <div class="w-full aspect-square rounded-xl mb-2 shadow-inner border border-gray-200 overflow-hidden">
+                <img src="${imageData}" class="w-full h-full object-cover" alt="追加した服">
+              </div>
+              <p class="text-xs font-bold text-gray-700 text-center">新規登録アイテム</p>
+            </div>
+          `;
+          container.insertAdjacentHTML('afterbegin', newItemHTML);
+          lucide.createIcons();
+        }
+      }
+
+      setTimeout(() => {
+        closeCamera();
+      }, 300);
+    }
+
+    function deleteItem(buttonEl) {
+      const card = buttonEl.closest('.relative');
+      if (card) {
+        card.classList.add('transition-all', 'duration-200', 'scale-90', 'opacity-0');
+        setTimeout(() => {
+          card.remove();
+        }, 200);
+      }
+    }
+
+    function switchTab(tabId) {
+      currentActiveTab = tabId;
+      const tabs = ['tops', 'bottoms', 'shoes'];
+      
+      tabs.forEach(t => {
+        const tabBtn = document.getElementById(`tab-${t}`);
+        const content = document.getElementById(`content-${t}`);
+        
+        if (t === tabId) {
+          tabBtn.classList.remove('border-transparent', 'text-gray-400');
+          tabBtn.classList.add('border-gray-900', 'text-gray-900');
+          content.classList.remove('hidden');
+        } else {
+          tabBtn.classList.add('border-transparent', 'text-gray-400');
+          tabBtn.classList.remove('border-gray-900', 'text-gray-900');
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    function resetGachaButton() {
+      gachaBtn.disabled = false;
+      gachaBtn.classList.add('hover:scale-105', 'animate-pulse-slow');
+      gachaBtn.classList.remove('animate-spin-slow', 'opacity-90');
+      
+      iconWand.classList.remove('hidden');
+      iconSpinner.classList.add('hidden');
+      
+      gachaText.innerText = 'コーデガチャ';
+      gachaSubtext.classList.remove('hidden');
+    }
+
+    // 初回初期化
+    window.addEventListener('DOMContentLoaded', () => {
+      getWeatherInfo();
+      updateHomeCalendarWidget();
+    });
+  </script>
+</body>
+</html>
