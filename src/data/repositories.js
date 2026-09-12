@@ -19,8 +19,8 @@ export const closetRepo = {
     const id = newId();
 
     let image = { url: null, path: null };
-    if (input.imageDataUrl) {
-      image = await backend.uploadImage(id, input.imageDataUrl);
+    if (input.image?.dataUrl) {
+      image = await backend.uploadImage(id, input.image);
     }
 
     const item = {

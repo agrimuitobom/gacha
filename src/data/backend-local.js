@@ -95,8 +95,8 @@ export function createLocalBackend() {
     },
 
     /** ローカルでは data URL をそのまま保持する */
-    async uploadImage(itemId, dataUrl) {
-      return { url: dataUrl, path: null };
+    async uploadImage(itemId, image) {
+      return { url: image.dataUrl, path: null };
     },
 
     async deleteImage() {},

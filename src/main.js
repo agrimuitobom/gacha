@@ -142,7 +142,7 @@ async function saveCapturedItem() {
   saveButton.textContent = '保存中...';
 
   try {
-    await closetRepo.add({ ...input, imageDataUrl: state.pendingPhoto });
+    await closetRepo.add({ ...input, image: state.pendingPhoto });
     state.pendingPhoto = null;
     switchTab(input.category);
     await renderCloset();

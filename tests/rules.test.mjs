@@ -124,11 +124,14 @@ await check('他人の領域には保存できない', assertFails(
 await check('他人の画像は読めない', assertFails(
   getBytes(ref(bobStorage, `users/${ALICE}/closet/a.jpg`))
 ));
-await check('JPEG 以外は拒否', assertFails(
+await check('本人は WebP も保存できる', assertSucceeds(
+  uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/a.webp`), jpeg, { contentType: 'image/webp' })
+));
+await check('JPEG / WebP 以外は拒否', assertFails(
   uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/c.png`), jpeg, { contentType: 'image/png' })
 ));
-await check('2MB を超えるファイルは拒否', assertFails(
-  uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/big.jpg`), new Uint8Array(2 * 1024 * 1024 + 10), {
+await check('1MB を超えるファイルは拒否', assertFails(
+  uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/big.jpg`), new Uint8Array(1 * 1024 * 1024 + 10), {
     contentType: 'image/jpeg',
   })
 ));

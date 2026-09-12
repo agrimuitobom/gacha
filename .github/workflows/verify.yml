@@ -54,6 +54,9 @@ jobs:
       - name: コントラスト比（WCAG AA）
         run: npm run test:contrast
 
+      - name: 撮影画像の縮小・圧縮
+        run: npm run test:image
+
       - name: セキュリティルール（Firebase エミュレータ）
         run: npm run test:rules:ci
 

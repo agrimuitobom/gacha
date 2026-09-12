@@ -62,11 +62,13 @@ export function createFirebaseBackend() {
       await deleteDoc(doc(db, 'users', uid, name, id));
     },
 
-    async uploadImage(itemId, dataUrl) {
+    async uploadImage(itemId, image) {
       const { storage } = getFirebase();
-      const path = `users/${uid}/closet/${itemId}.jpg`;
+      // 拡張子は実際の形式に合わせる（端末により WebP か JPEG）
+      const path = `users/${uid}/closet/${itemId}.${image.extension}`;
       const fileRef = storageRef(storage, path);
-      await uploadString(fileRef, dataUrl, 'data_url', { contentType: 'image/jpeg' });
+      // data_url 指定なので base64 は復号されて保存される（33%の水増しは乗らない）
+      await uploadString(fileRef, image.dataUrl, 'data_url', { contentType: image.contentType });
       return { url: await getDownloadURL(fileRef), path };
     },
 
