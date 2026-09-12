@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+/* クラス名の検出対象を明示する（動的に組み立てるクラスの取りこぼしを防ぐ） */
+@source "../index.html";
+@source "./**/*.js";
+
+@theme {
+  --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
+  --animate-spin-slow: spin-slow 1.5s linear infinite;
+  --animate-fade-in: fade-in 0.3s ease-out forwards;
+  --animate-toast: slide-up-fade 3s ease-in-out forwards;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up-fade {
+  0% { opacity: 0; transform: translate(-50%, 20px); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  90% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -20px); }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@layer base {
+  /*
+   * フォーカスリング。
+   * 以前は focus:outline-none で見えなくしていたため、
+   * キーボード操作でどこにいるか分からなかった。
+   * マウス操作では出さず、キーボード操作でだけ出す。
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-rose-600);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  /* 非表示画面がポインタ操作を受けないようにする */
+  [inert] { pointer-events: none; }
+
+  /* 画面遷移の見出しはフォーカスを受けるが、枠線は控えめにする */
+  [data-screen-title]:focus { outline: none; }
+}
+
+/* 端末の「視差効果を減らす」設定を尊重する */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

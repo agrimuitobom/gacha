@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // クローゼットの写真。自分の領域のみ読み書きできる。
+    match /users/{userId}/closet/{fileName} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      allow read, delete: if isOwner();
+
+      allow write: if isOwner()
+                   && request.resource.size <= 2 * 1024 * 1024      // 2MB
+                   && request.resource.contentType == 'image/jpeg';
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
