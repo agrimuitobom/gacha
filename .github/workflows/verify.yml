@@ -1,0 +1,61 @@
+# 検証だけを行う再利用可能ワークフロー。
+# ci.yml と deploy.yml の両方から呼び出し、同じ内容を二重に書かないようにする。
+name: verify
+
+on:
+  workflow_call:
+
+jobs:
+  build-and-test:
+    name: ビルドと検証
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Firestore / Storage エミュレータは Java を必要とする
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Firestore / Storage エミュレータの JAR は毎回ダウンロードすると重い
+      - name: エミュレータをキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+
+      - name: 依存関係をインストール
+        run: npm ci
+
+      - name: Playwright の Chromium を用意
+        run: npx playwright install --with-deps chromium
+
+      - name: ビルド
+        run: npm run build
+
+      - name: Tailwind のクラスが生成されているか
+        run: npm run test:css
+
+      - name: CSP とセキュリティヘッダ
+        run: npm run test:csp
+
+      - name: E2E（機能・アクセシビリティ・PWA）
+        run: npm run test:e2e
+
+      - name: コントラスト比（WCAG AA）
+        run: npm run test:contrast
+
+      - name: セキュリティルール（Firebase エミュレータ）
+        run: npm run test:rules:ci
+
+      - name: E2E（Firebase 経路・エミュレータ）
+        run: npm run test:e2e:firebase

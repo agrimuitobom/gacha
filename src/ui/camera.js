@@ -5,6 +5,8 @@ import { state } from '../state.js';
 /** 長辺の上限。原寸のままだと数MBになり、保存も同期も現実的でなくなる */
 const MAX_IMAGE_SIZE = 800;
 const JPEG_QUALITY = 0.8;
+/** フラッシュ演出：白く光らせてからフェードアウトを始めるまでの間 */
+const FLASH_HOLD_MS = 50;
 
 let currentStream = null;
 
@@ -70,7 +72,7 @@ function flashCamera() {
   setTimeout(() => {
     flash.style.transition = 'opacity 0.3s ease-out';
     flash.classList.replace('opacity-100', 'opacity-0');
-  }, 50);
+  }, FLASH_HOLD_MS);
 }
 
 function captureResizedDataUrl(video) {

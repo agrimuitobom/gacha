@@ -11,6 +11,25 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <title>コーデガチャ - 天気と予定に合わせたコーデ提案</title>
+
+  <!-- OGP / Twitter Card
+       og:image と og:url は絶対URLである必要がある。
+       VITE_SITE_URL を設定すると、ビルド時に絶対URLへ書き換わる
+       （vite.config.js の absoluteUrls プラグイン）。 -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="コーデガチャ">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:title" content="コーデガチャ">
+  <meta property="og:description" content="天気と予定に合わせて、手持ちの服から今日のコーデを提案します">
+  <meta property="og:image" content="/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="コーデガチャ - 天気と予定に合わせて、手持ちの服から提案">
+  <meta property="og:url" content="/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="コーデガチャ">
+  <meta name="twitter:description" content="天気と予定に合わせて、手持ちの服から今日のコーデを提案します">
+  <meta name="twitter:image" content="/og-image.png">
   <script type="module" src="/src/main.js"></script>
 </head>
 <body class="bg-pink-200 flex items-center justify-center min-h-dvh font-sans text-gray-800">
@@ -32,7 +51,7 @@
             <span data-icon="calendar" data-icon-class="w-4 h-4"></span>
             <span id="home-calendar-date-text" class="text-xs">--/--</span>
           </span>
-          <span id="home-schedule-text" class="text-[11px] text-gray-600 font-medium truncate w-full">読み込み中...</span>
+          <span id="home-schedule-text" class="text-xs text-gray-600 font-medium truncate w-full">読み込み中...</span>
           <span id="home-decided-badge" class="hidden text-[11px] text-pink-700 font-bold items-center gap-1 mt-1">
             <span data-icon="sparkles" data-icon-class="w-3 h-3"></span>コーデ決定済み
           </span>
@@ -43,20 +62,20 @@
           <span id="weather-icon-container" class="shrink-0 text-orange-500" data-icon="sun" data-icon-class="w-6 h-6"></span>
           <span class="flex flex-col items-end min-w-0 flex-1" aria-live="polite">
             <span id="weather-temp" class="text-lg font-black leading-none text-gray-900">--°</span>
-            <span id="weather-desc" class="text-[11px] text-gray-700 font-medium mt-1 truncate w-full text-right">天気取得中...</span>
+            <span id="weather-desc" class="text-xs text-gray-700 font-medium mt-1 truncate w-full text-right">天気取得中...</span>
           </span>
         </button>
       </div>
 
       <!-- 中央エリア（ガチャ） -->
       <div class="my-auto py-2 flex flex-col items-center justify-center z-10">
-        <button type="button" id="gacha-btn" data-action="start-gacha" class="relative group flex items-center justify-center w-48 h-48 sm:w-52 sm:h-52 rounded-full shadow-[0_20px_50px_rgba(236,72,153,0.3)] bg-linear-to-tr from-pink-500 via-purple-500 to-indigo-500 active:scale-95 transition-all duration-300 hover:scale-105 animate-pulse-slow">
+        <button type="button" id="gacha-btn" data-action="start-gacha" class="relative group flex items-center justify-center w-48 h-48 sm:w-52 sm:h-52 rounded-full shadow-[0_20px_50px_rgba(236,72,153,0.3)] bg-linear-to-tr from-pink-600 via-purple-600 to-indigo-600 active:scale-95 transition-all duration-300 hover:scale-105 animate-pulse-slow">
           <span class="absolute inset-2 rounded-full border-4 border-white/20"></span>
           <span class="flex flex-col items-center text-white">
             <span id="icon-wand" class="mb-1 group-hover:rotate-12 transition-transform" data-icon="wand-2" data-icon-class="w-12 h-12"></span>
             <span id="icon-spinner" class="mb-1 animate-spin hidden" data-icon="refresh-ccw" data-icon-class="w-10 h-10"></span>
             <span id="gacha-text" class="text-xl font-black tracking-wider">コーデガチャ</span>
-            <span id="gacha-subtext" class="text-[11px] font-medium opacity-90 mt-0.5">TAP TO SPIN</span>
+            <span id="gacha-subtext" class="text-[11px] font-medium mt-0.5">TAP TO SPIN</span>
           </span>
         </button>
         <p class="mt-4 text-xs font-medium text-gray-600 text-center px-4 leading-relaxed">
@@ -95,7 +114,7 @@
           <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
             <span data-icon="map-pin" data-icon-class="w-4 h-4"></span> このコーデに合う小物を探す
           </h3>
-          <button type="button" data-action="open-shop" class="w-full text-left bg-linear-to-r from-emerald-600 to-teal-600 p-4 rounded-2xl text-white flex justify-between items-center shadow-md active:scale-95 transition-transform">
+          <button type="button" data-action="open-shop" class="w-full text-left bg-linear-to-r from-emerald-700 to-teal-700 p-4 rounded-2xl text-white flex justify-between items-center shadow-md active:scale-95 transition-transform">
             <span>
               <span class="font-bold block">サコッシュバッグ</span>
               <span class="text-xs opacity-90 mt-1 block">近くの店舗で取扱中</span>
@@ -147,91 +166,8 @@
         <h2 id="shop-title" data-screen-title tabindex="-1" class="text-lg font-bold mx-auto pr-8">周辺の服屋</h2>
       </div>
 
-      <ul class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50 flex flex-col gap-4 list-none">
-
-        <li class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-3">
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-bold text-gray-900 text-base">minami</h3>
-              <p class="text-xs text-gray-600 mt-1 flex items-center gap-1"><span data-icon="map-pin" data-icon-class="w-3 h-3"></span> 2.7 km 先</p>
-            </div>
-            <span class="px-2 py-1 bg-green-100 text-green-800 text-[11px] font-bold rounded-full">営業中</span>
-          </div>
-
-          <ul class="flex gap-3 overflow-x-auto no-scrollbar py-1 list-none">
-            <li class="shrink-0 w-20 flex flex-col items-center gap-1">
-              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=200&q=80" alt="ルーズシャツ" loading="lazy" decoding="async" data-fallback="https://placehold.co/200x200/e2e8f0/475569?text=Shirt" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-              </div>
-              <span class="text-[11px] font-bold text-gray-800 truncate w-full text-center">ルーズシャツ</span>
-              <span class="text-[11px] text-pink-700 font-bold">¥4,900</span>
-            </li>
-            <li class="shrink-0 w-20 flex flex-col items-center gap-1">
-              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=200&q=80" alt="ニットベスト" loading="lazy" decoding="async" data-fallback="https://placehold.co/200x200/e2e8f0/475569?text=Knit" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-              </div>
-              <span class="text-[11px] font-bold text-gray-800 truncate w-full text-center">ニットベスト</span>
-              <span class="text-[11px] text-pink-700 font-bold">¥5,500</span>
-            </li>
-            <li class="shrink-0 w-20 flex flex-col items-center gap-1">
-              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1582552938357-32b906df40cb?auto=format&fit=crop&w=200&q=80" alt="デニムスカート" loading="lazy" decoding="async" data-fallback="https://placehold.co/200x200/e2e8f0/475569?text=Skirt" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-              </div>
-              <span class="text-[11px] font-bold text-gray-800 truncate w-full text-center">デニムスカート</span>
-              <span class="text-[11px] text-pink-700 font-bold">¥6,800</span>
-            </li>
-          </ul>
-
-          <div class="flex justify-between items-center mt-1 pt-3 border-t border-gray-100">
-            <p class="text-xs text-gray-600 flex items-center gap-1"><span data-icon="clock" data-icon-class="w-3 h-3"></span> 10:00〜19:00</p>
-            <a href="https://saijo.mypl.net/shop/00000379236/" target="_blank" rel="noopener noreferrer" class="px-3 py-2 bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700 flex items-center gap-1">
-              詳細<span class="sr-only">（minami、新しいタブで開く）</span> <span data-icon="external-link" data-icon-class="w-3 h-3"></span>
-            </a>
-          </div>
-        </li>
-
-        <li class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-3">
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="font-bold text-gray-900 text-base">キャマラド</h3>
-              <p class="text-xs text-gray-600 mt-1 flex items-center gap-1"><span data-icon="map-pin" data-icon-class="w-3 h-3"></span> 2.0 km 先</p>
-            </div>
-            <span class="px-2 py-1 bg-green-100 text-green-800 text-[11px] font-bold rounded-full">営業中</span>
-          </div>
-
-          <ul class="flex gap-3 overflow-x-auto no-scrollbar py-1 list-none">
-            <li class="shrink-0 w-20 flex flex-col items-center gap-1">
-              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=200&q=80" alt="ワンピース" loading="lazy" decoding="async" data-fallback="https://placehold.co/200x200/e2e8f0/475569?text=Dress" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-              </div>
-              <span class="text-[11px] font-bold text-gray-800 truncate w-full text-center">ワンピース</span>
-              <span class="text-[11px] text-pink-700 font-bold">¥8,900</span>
-            </li>
-            <li class="shrink-0 w-20 flex flex-col items-center gap-1">
-              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=200&q=80" alt="ブラウス" loading="lazy" decoding="async" data-fallback="https://placehold.co/200x200/e2e8f0/475569?text=Blouse" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-              </div>
-              <span class="text-[11px] font-bold text-gray-800 truncate w-full text-center">ブラウス</span>
-              <span class="text-[11px] text-pink-700 font-bold">¥6,000</span>
-            </li>
-            <li class="shrink-0 w-20 flex flex-col items-center gap-1">
-              <div class="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=200&q=80" alt="カーディガン" loading="lazy" decoding="async" data-fallback="https://placehold.co/200x200/e2e8f0/475569?text=Cardigan" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-              </div>
-              <span class="text-[11px] font-bold text-gray-800 truncate w-full text-center">カーディガン</span>
-              <span class="text-[11px] text-pink-700 font-bold">¥7,200</span>
-            </li>
-          </ul>
-
-          <div class="flex justify-between items-center mt-1 pt-3 border-t border-gray-100">
-            <p class="text-xs text-gray-600 flex items-center gap-1"><span data-icon="clock" data-icon-class="w-3 h-3"></span> 11:00〜18:00</p>
-            <a href="https://instagram.com/0125camarade/" target="_blank" rel="noopener noreferrer" class="px-3 py-2 bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700 flex items-center gap-1">
-              詳細<span class="sr-only">（キャマラド、新しいタブで開く）</span> <span data-icon="external-link" data-icon-class="w-3 h-3"></span>
-            </a>
-          </div>
-        </li>
-
-      </ul>
+      <!-- 店舗一覧（src/data/shops.js から描画） -->
+      <ul id="shop-list" class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50 flex flex-col gap-4 list-none"></ul>
     </section>
 
     <!-- =========================================
@@ -306,7 +242,7 @@
               <option value="4">4 - 厚手</option>
               <option value="5">5 - とても厚手（真冬）</option>
             </select>
-            <p id="capture-warmth-help" class="text-[11px] text-gray-600">気温に合うコーデを選ぶために使います</p>
+            <p id="capture-warmth-help" class="text-xs text-gray-600">気温に合うコーデを選ぶために使います</p>
           </div>
 
           <div class="flex flex-col gap-1.5">
@@ -316,7 +252,7 @@
               <option value="2">2 - きれいめ</option>
               <option value="3">3 - フォーマル</option>
             </select>
-            <p id="capture-formality-help" class="text-[11px] text-gray-600">予定に合うコーデを選ぶために使います</p>
+            <p id="capture-formality-help" class="text-xs text-gray-600">予定に合うコーデを選ぶために使います</p>
           </div>
 
           <div class="flex items-center gap-2.5 py-1">

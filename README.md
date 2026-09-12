@@ -29,9 +29,15 @@ npm run dev
 | `npm run icons` | PWA アイコンを再生成（`public/icons/`） |
 | `npm run emulators` | Firebase エミュレータ（auth / firestore / storage）を起動 |
 | `npm run build:emulator` | エミュレータ接続用にビルド |
-| `npm test` | ビルド + Tailwind のクラス生成チェック（サーバ不要） |
+| `npm test` | ビルド + クラス生成チェック + CSP 検証（サーバ不要で完結） |
+| `npm run test:css` | Tailwind のクラスが生成されているかの検証 |
+| `npm run test:csp` | CSP とセキュリティヘッダの検証 |
+| `npm run test:e2e` | E2E テスト（プレビューサーバは自動で起動・停止） |
+| `npm run test:contrast` | コントラスト比の検証（同上） |
 | `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
-| `npm run test:e2e` | E2E テスト（`npm run preview` が前提） |
+| `npm run test:rules:ci` | 同上（エミュレータの起動・停止まで自動） |
+| `npm run test:e2e:firebase` | Firebase 経路の E2E（エミュレータ込みで自動） |
+| `npm run build:deploy` | 設定チェック付きの本番ビルド |
 
 ## Firebase
 
@@ -63,6 +69,66 @@ npx firebase deploy --only firestore:rules,storage
 npm run build
 npx firebase deploy --only hosting
 ```
+
+GitHub Actions から自動でデプロイする場合は次節を参照してください。
+
+## GitHub Actions からのデプロイ
+
+| ワークフロー | 実行タイミング | 内容 |
+| --- | --- | --- |
+| `verify.yml` | 他から呼ばれる | ビルドと全テスト（再利用可能ワークフロー） |
+| `ci.yml` | PR・main 以外への push | 検証 + PR ごとのプレビューURL発行 |
+| `deploy.yml` | main への push・手動実行 | 検証 + ルールと Hosting の本番デプロイ |
+
+検証が通らなければデプロイは実行されません（`needs: verify`）。
+
+### 1. サービスアカウントを作る
+
+Firebase コンソール > プロジェクトの設定 > **サービスアカウント** > 「新しい秘密鍵の生成」で JSON をダウンロードします。
+
+このサービスアカウントには次のロールが必要です（Google Cloud コンソールの IAM で付与）。
+
+- **Firebase Hosting 管理者** — Hosting のデプロイ
+- **Cloud Datastore インデックス管理者** / **Firebase Rules 管理者** — Firestore・Storage のルール反映
+- **サービス アカウント ユーザー**
+
+> `firebase init hosting:github` を使うと、サービスアカウントの作成とシークレット登録まで自動で行えます。ただしルールのデプロイ権限は別途付与が必要です。
+
+### 2. GitHub に登録する
+
+Settings > Secrets and variables > Actions で設定します。
+
+**Secrets**（秘密情報）
+
+| 名前 | 内容 |
+| --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT` | 上でダウンロードした JSON の中身をそのまま貼り付け |
+
+**Variables**（秘密ではない設定）
+
+| 名前 | 例 |
+| --- | --- |
+| `VITE_FIREBASE_API_KEY` | `AIza...` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `your-app.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | `your-app` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | `your-app.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | `123456789012` |
+| `VITE_FIREBASE_APP_ID` | `1:123456789012:web:abc...` |
+| `VITE_SITE_URL` | `https://your-app.web.app` |
+
+> Firebase のウェブ設定値は**秘密情報ではありません**。ビルド結果に埋め込まれ、ブラウザから誰でも読めます。だから Secrets ではなく Variables に置いています。データの保護は `firestore.rules` / `storage.rules` の役割です。
+>
+> 設定が欠けたままデプロイされると、**同期されないアプリが無言で公開されます**。これを防ぐため `npm run build:deploy` は `scripts/check-env.js` で事前に確認し、不足があればビルドを中止します。
+
+### 3. デプロイ
+
+main にマージすると `deploy.yml` が動きます。手動で流す場合は Actions タブから `Deploy` を選んで「Run workflow」です。
+
+PR を作ると `ci.yml` が検証したうえでプレビューURLを発行し、PR にコメントします（7日で失効）。
+
+### デプロイ順序について
+
+ルールを Hosting より**先に**反映しています。逆順にすると、新しいフィールドを書き込む新バージョンのアプリが、まだ古いルールに弾かれる時間帯が生まれるためです。
 
 ### 認証について
 
@@ -111,6 +177,31 @@ users/{uid}/outfits/{outfitId}
 
 Firestore のローカルキャッシュ（`persistentLocalCache`）を有効にしているため、オフラインでも読み書きでき、復帰時に同期されます。複数タブで開いても壊れないよう `persistentMultipleTabManager` を使っています。
 
+## セキュリティ
+
+### Content Security Policy
+
+`firebase.json` の `hosting.headers` で配信します。ビルド後の HTML にインラインの `<script>` / `<style>` / `onclick` が1つも無いため、**`'unsafe-inline'` なしで運用しています**。
+
+```
+script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none' …
+```
+
+あわせて次のヘッダも付けています。
+
+| ヘッダ | 値 | 理由 |
+| --- | --- | --- |
+| `X-Content-Type-Options` | `nosniff` | MIME スニッフィングの抑止 |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | 外部リンク経由でのパス漏れ防止 |
+| `Permissions-Policy` | `camera=(self), geolocation=(self), microphone=(), payment=()` | 使わない機能を明示的に禁止 |
+| `Cross-Origin-Opener-Policy` | `same-origin-allow-popups` | `same-origin` にすると Google サインインのポップアップが壊れるため |
+
+`npm run test:csp` で、`firebase.json` のヘッダをそのまま適用した状態でアプリを操作し、CSP 違反が発生しないこと、かつ**インラインスクリプトの注入が実際に阻止されること**まで確認できます。
+
+> CSP はホスティング側のヘッダで効きます。`npm run dev` / `npm run preview` には付きません。Firebase Hosting 以外へ配置する場合は、同じヘッダをそのサーバに設定してください。
+
+> 独自の認証ドメインを使う場合は `frame-src` に、Cloud Functions を使う場合は `connect-src` に、それぞれ追記が必要です。
+
 ## 構成
 
 ```
@@ -126,14 +217,25 @@ src/
     backend-firebase.js   Firestore + Cloud Storage 実装
     firebase-app.js       SDK 初期化・認証
     repositories.js       アプリが触る唯一のデータ層
+    shops.js              周辺の服屋（静的データ + 営業時間判定）
   domain/
     gacha.js              抽選ロジック（DOM非依存）
     weather.js            天気取得（DOM非依存）
     dates.js              日付ユーティリティ
   ui/                   画面ごとの描画とフォーカス管理
+.github/workflows/
+  verify.yml            ビルドと全テスト（再利用可能）
+  ci.yml                PR 検証 + プレビューデプロイ
+  deploy.yml            本番デプロイ
+scripts/
+  check-env.js          デプロイ前の設定チェック
+  serve-and-run.js      プレビュー起動 → テスト実行 → 後片付け
+  generate-icons.js     アイコンと OGP 画像の生成
 tests/
   rules.test.mjs        セキュリティルール検証
   e2e.mjs               E2E（機能・アクセシビリティ・PWA）
+  csp.mjs               CSP とセキュリティヘッダの検証
+  contrast.mjs          コントラスト比（WCAG AA）の検証
   css-coverage.mjs      Tailwind のクラスが生成されているかの検証
 ```
 
@@ -147,6 +249,9 @@ tests/
 - `Escape` で前の画面に戻れます
 - タップ対象は 44px 以上、入力欄は 16px 以上（iOS のフォーカス時ズーム防止）
 - `prefers-reduced-motion` を尊重します
+- 全画面で WCAG 2.1 AA のコントラスト比（通常 4.5:1 / 大きい文字 3:1）を満たします
+
+コントラストは `npm run test:contrast` で自動検証しています。グラデーション背景は最も不利な色停止点で判定し、親要素の `opacity` も計算に含めます。
 
 ## 天気について
 
@@ -155,6 +260,16 @@ tests/
 取得に失敗したときは、**架空の気温を表示しません**。気温はコーデ提案の主要な入力なので、嘘の値を出すと誤った提案に直結するためです。取得できなかった旨を表示し、ガチャは気温を考慮せずに継続します。
 
 位置情報は、天気ウィジェットをタップしたときだけ要求します。起動直後に理由なく許可を求めないようにするためです。既定は愛媛県西条市です（`src/domain/weather.js`）。
+
+## 公開URLの設定
+
+OGP の `og:image` / `og:url` は絶対URLでなければクローラが解決できません。ドメインが決まったら `.env` に設定してください。
+
+```
+VITE_SITE_URL=https://your-app.web.app
+```
+
+未設定でも動作します（相対パスのまま出力されます）。
 
 ## ライセンス
 
