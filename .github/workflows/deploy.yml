@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
+  deploy:
+    name: Firebase へデプロイ
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    env:
+      FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存関係をインストール
+        run: npm ci
+
+      # 設定が欠けたままだと、同期されないアプリが無言で公開される。
+      # build:deploy は check:env を通ってから vite build を実行する。
+      - name: ビルド
+        run: npm run build:deploy
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
+
+      - name: サービスアカウントを書き出す
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::シークレット FIREBASE_SERVICE_ACCOUNT が設定されていません"
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      # ルールを先に反映する。逆順にすると、新しいフィールドを書き込むアプリが
+      # 古いルールに弾かれる時間帯ができてしまう。
+      - name: Firestore / Storage のルールをデプロイ
+        run: npx firebase deploy --only firestore:rules,storage --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+      - name: Hosting をデプロイ
+        run: npx firebase deploy --only hosting --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+      - name: 後片付け
+        if: always()
+        run: rm -f "$RUNNER_TEMP/service-account.json"
+
+      - name: デプロイ結果を要約
+        run: |
+          {
+            echo "### デプロイ完了"
+            echo ""
+            echo "- プロジェクト: \`$FIREBASE_PROJECT_ID\`"
+            echo "- URL: ${{ vars.VITE_SITE_URL || format('https://{0}.web.app', vars.VITE_FIREBASE_PROJECT_ID) }}"
+            echo "- コミット: \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

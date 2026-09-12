@@ -32,9 +32,12 @@ npm run dev
 | `npm test` | ビルド + クラス生成チェック + CSP 検証（サーバ不要で完結） |
 | `npm run test:css` | Tailwind のクラスが生成されているかの検証 |
 | `npm run test:csp` | CSP とセキュリティヘッダの検証 |
-| `npm run test:e2e` | E2E テスト（`npm run preview` が前提） |
-| `npm run test:contrast` | コントラスト比の検証（`npm run preview` が前提） |
+| `npm run test:e2e` | E2E テスト（プレビューサーバは自動で起動・停止） |
+| `npm run test:contrast` | コントラスト比の検証（同上） |
 | `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
+| `npm run test:rules:ci` | 同上（エミュレータの起動・停止まで自動） |
+| `npm run test:e2e:firebase` | Firebase 経路の E2E（エミュレータ込みで自動） |
+| `npm run build:deploy` | 設定チェック付きの本番ビルド |
 
 ## Firebase
 
@@ -66,6 +69,66 @@ npx firebase deploy --only firestore:rules,storage
 npm run build
 npx firebase deploy --only hosting
 ```
+
+GitHub Actions から自動でデプロイする場合は次節を参照してください。
+
+## GitHub Actions からのデプロイ
+
+| ワークフロー | 実行タイミング | 内容 |
+| --- | --- | --- |
+| `verify.yml` | 他から呼ばれる | ビルドと全テスト（再利用可能ワークフロー） |
+| `ci.yml` | PR・main 以外への push | 検証 + PR ごとのプレビューURL発行 |
+| `deploy.yml` | main への push・手動実行 | 検証 + ルールと Hosting の本番デプロイ |
+
+検証が通らなければデプロイは実行されません（`needs: verify`）。
+
+### 1. サービスアカウントを作る
+
+Firebase コンソール > プロジェクトの設定 > **サービスアカウント** > 「新しい秘密鍵の生成」で JSON をダウンロードします。
+
+このサービスアカウントには次のロールが必要です（Google Cloud コンソールの IAM で付与）。
+
+- **Firebase Hosting 管理者** — Hosting のデプロイ
+- **Cloud Datastore インデックス管理者** / **Firebase Rules 管理者** — Firestore・Storage のルール反映
+- **サービス アカウント ユーザー**
+
+> `firebase init hosting:github` を使うと、サービスアカウントの作成とシークレット登録まで自動で行えます。ただしルールのデプロイ権限は別途付与が必要です。
+
+### 2. GitHub に登録する
+
+Settings > Secrets and variables > Actions で設定します。
+
+**Secrets**（秘密情報）
+
+| 名前 | 内容 |
+| --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT` | 上でダウンロードした JSON の中身をそのまま貼り付け |
+
+**Variables**（秘密ではない設定）
+
+| 名前 | 例 |
+| --- | --- |
+| `VITE_FIREBASE_API_KEY` | `AIza...` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `your-app.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | `your-app` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | `your-app.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | `123456789012` |
+| `VITE_FIREBASE_APP_ID` | `1:123456789012:web:abc...` |
+| `VITE_SITE_URL` | `https://your-app.web.app` |
+
+> Firebase のウェブ設定値は**秘密情報ではありません**。ビルド結果に埋め込まれ、ブラウザから誰でも読めます。だから Secrets ではなく Variables に置いています。データの保護は `firestore.rules` / `storage.rules` の役割です。
+>
+> 設定が欠けたままデプロイされると、**同期されないアプリが無言で公開されます**。これを防ぐため `npm run build:deploy` は `scripts/check-env.js` で事前に確認し、不足があればビルドを中止します。
+
+### 3. デプロイ
+
+main にマージすると `deploy.yml` が動きます。手動で流す場合は Actions タブから `Deploy` を選んで「Run workflow」です。
+
+PR を作ると `ci.yml` が検証したうえでプレビューURLを発行し、PR にコメントします（7日で失効）。
+
+### デプロイ順序について
+
+ルールを Hosting より**先に**反映しています。逆順にすると、新しいフィールドを書き込む新バージョンのアプリが、まだ古いルールに弾かれる時間帯が生まれるためです。
 
 ### 認証について
 
@@ -160,6 +223,14 @@ src/
     weather.js            天気取得（DOM非依存）
     dates.js              日付ユーティリティ
   ui/                   画面ごとの描画とフォーカス管理
+.github/workflows/
+  verify.yml            ビルドと全テスト（再利用可能）
+  ci.yml                PR 検証 + プレビューデプロイ
+  deploy.yml            本番デプロイ
+scripts/
+  check-env.js          デプロイ前の設定チェック
+  serve-and-run.js      プレビュー起動 → テスト実行 → 後片付け
+  generate-icons.js     アイコンと OGP 画像の生成
 tests/
   rules.test.mjs        セキュリティルール検証
   e2e.mjs               E2E（機能・アクセシビリティ・PWA）

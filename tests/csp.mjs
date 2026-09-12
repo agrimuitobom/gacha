@@ -10,11 +10,10 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
 const PORT = 4188;
 const DIST = 'dist';
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -71,7 +70,7 @@ const results = [];
 const ok = (name, passed, detail = '') =>
   results.push(`${passed ? '✅' : '❌'} ${name}${detail ? ' — ' + detail : ''}`);
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await launchChromium();
 const context = await browser.newContext({ reducedMotion: 'reduce' });
 
 await context.route('**/api.open-meteo.com/**', (route) =>

@@ -7,12 +7,11 @@
  *   npm run build && npm run preview   # 別ターミナル
  *   node tests/contrast.mjs
  */
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4173/';
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await launchChromium();
 const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 420, height: 880 } });
 
 await context.route('**/api.open-meteo.com/**', (route) =>

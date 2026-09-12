@@ -6,10 +6,9 @@
  * Firebase エミュレータ向けにビルドした dist を対象にすると、
  * Firestore / Cloud Storage を含む実際の保存経路を通しで検証できる。
  */
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4173/';
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 const results = [];
 const ok = (name, passed, detail = '') =>
@@ -24,7 +23,7 @@ const weatherResponse = (temp, code, pop) => ({
   }),
 });
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await launchChromium();
 
 async function newPage(weatherRoute) {
   const context = await browser.newContext({
@@ -76,28 +75,32 @@ const gacha = async (page) => {
   await page.click('#closet-screen [data-action="back"]');
   await page.waitForTimeout(200);
 
-  /* ガチャが状況に追従するか */
-  const draws = new Set();
-  for (let i = 0; i < 6; i += 1) {
-    await gacha(page);
-    draws.add(await page.textContent('#result-items'));
-    await page.click('#result-screen [data-action="back"]');
-    await page.waitForTimeout(120);
-  }
-  ok('ガチャが毎回同じ結果ではない', draws.size > 1, `${draws.size} 通り`);
-
+  /* ホームからの往復が成立するか（画面遷移の確認） */
   await gacha(page);
+  await page.click('#result-screen [data-action="back"]');
+  await page.waitForTimeout(200);
+  await gacha(page);
+
   const message = await page.textContent('#result-message');
   ok('提案理由に気温と雨が反映', message.includes('8°') && message.includes('雨に強い'), message.trim());
 
+  /*
+   * ガチャの分布を確認する。
+   * 最頻の組み合わせでも出現率は5割程度なので、少ない試行で
+   * 「全部同じ」を判定すると偶然で落ちる。まとめて多めに引く。
+   */
+  const DRAWS = 24;
+  const outcomes = new Set();
   const shoes = {};
-  for (let i = 0; i < 24; i += 1) {
+  for (let i = 0; i < DRAWS; i += 1) {
     await page.click('[data-action="regacha"]');
     await page.waitForTimeout(450);
-    const match = (await page.textContent('#result-items'))
-      .match(/(白レザースニーカー|黒レザーブーツ|キャンバススニーカー)/);
+    const rendered = await page.textContent('#result-items');
+    outcomes.add(rendered);
+    const match = rendered.match(/(白レザースニーカー|黒レザーブーツ|キャンバススニーカー)/);
     if (match) shoes[match[1]] = (shoes[match[1]] || 0) + 1;
   }
+  ok('ガチャが毎回同じ結果ではない', outcomes.size > 1, `${DRAWS}回で ${outcomes.size} 通り`);
   ok('雨天時に雨に弱い靴が選ばれにくい',
     (shoes['キャンバススニーカー'] || 0) < (shoes['黒レザーブーツ'] || 0), JSON.stringify(shoes));
 

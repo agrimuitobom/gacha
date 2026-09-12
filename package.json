@@ -7,17 +7,21 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --port 4173 --host 127.0.0.1",
     "icons": "node scripts/generate-icons.js",
     "test": "npm run build && node tests/css-coverage.mjs && node tests/csp.mjs",
     "emulators": "firebase emulators:start --project demo-gacha --only auth,firestore,storage",
     "build:emulator": "vite build --mode emulator",
-    "preview:emulator": "vite preview --mode emulator --port 4173",
+    "preview:emulator": "vite preview --mode emulator --port 4173 --host 127.0.0.1",
     "test:rules": "node tests/rules.test.mjs",
-    "test:e2e": "node tests/e2e.mjs",
+    "test:e2e": "node scripts/serve-and-run.js -- node tests/e2e.mjs",
     "test:css": "node tests/css-coverage.mjs",
     "test:csp": "node tests/csp.mjs",
-    "test:contrast": "node tests/contrast.mjs"
+    "test:contrast": "node scripts/serve-and-run.js -- node tests/contrast.mjs",
+    "test:rules:ci": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"node tests/rules.test.mjs\"",
+    "test:e2e:firebase": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"npm run build:emulator && CHECK_FIREBASE=true node scripts/serve-and-run.js -- node tests/e2e.mjs\"",
+    "check:env": "node scripts/check-env.js",
+    "build:deploy": "npm run check:env && vite build"
   },
   "dependencies": {
     "firebase": "^12.19.0",
