@@ -6,8 +6,10 @@ on:
     branches-ignore:
       - main
 
+# 同一リポジトリのブランチから PR を出すと push と pull_request の
+# 両方が発火する。head ref でグループ化して、古いほうを打ち切る。
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
