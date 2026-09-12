@@ -16,7 +16,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
-import { getFirebase, ensureSignedIn } from './firebase-app.js';
+import { getFirebase, ensureSignedIn, linkGoogleAccount, signOutUser } from './firebase-app.js';
 
 /**
  * Firebase バックエンド。
@@ -86,6 +86,49 @@ export function createFirebaseBackend() {
     async remove(name, id) {
       const { db } = getFirebase();
       await deleteDoc(doc(db, 'users', uid, name, id));
+    },
+
+    /**
+     * 現在のアカウントの状態。
+     *   anonymous … 匿名のまま。この端末のブラウザを消すとデータに戻れない
+     *   linked    … Google アカウントに紐づいていて、他の端末からも開ける
+     */
+    async getAccount() {
+      const { auth } = getFirebase();
+      const user = auth.currentUser;
+      if (!user) return { mode: 'signed-out', canLink: true };
+
+      const google = user.providerData.find((p) => p.providerId === 'google.com');
+      return {
+        mode: user.isAnonymous ? 'anonymous' : 'linked',
+        canLink: true,
+        canSignOut: !user.isAnonymous,
+        displayName: google?.displayName || user.displayName || null,
+        email: google?.email || user.email || null,
+        uid: user.uid,
+      };
+    },
+
+    /**
+     * Google アカウントに紐づける。
+     * @returns {{ carriedOver: boolean }} 匿名時のデータを引き継げたか
+     */
+    async linkAccount() {
+      const { auth } = getFirebase();
+      const wasAnonymous = auth.currentUser?.isAnonymous === true;
+      const previousUid = auth.currentUser?.uid;
+
+      const user = await linkGoogleAccount();
+      uid = user.uid;
+
+      // uid が変わった場合は別アカウントへのサインインなので、
+      // 匿名で貯めたデータは引き継がれていない
+      return { carriedOver: wasAnonymous && user.uid === previousUid };
+    },
+
+    async signOut() {
+      await signOutUser();
+      uid = null;
     },
 
     async uploadImage(itemId, image) {

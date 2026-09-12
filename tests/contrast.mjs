@@ -235,6 +235,12 @@ await page.waitForTimeout(200);
 await page.click('[data-action="open-calendar"]');
 await page.waitForTimeout(800);
 await audit('カレンダー');
+await page.click('#calendar-screen [data-action="back"]');
+await page.waitForTimeout(300);
+
+await page.click('[data-action="open-settings"]');
+await page.waitForTimeout(1200);
+await audit('設定');
 
 const total = allFailures.reduce((sum, entry) => sum + entry.failures.length, 0);
 console.log(total === 0

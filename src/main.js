@@ -15,6 +15,7 @@ import { refreshHomeWidget } from './ui/home.js';
 import { renderCloset, switchTab, handleTabKeydown } from './ui/closet.js';
 import { renderResult } from './ui/result.js';
 import { renderShops } from './ui/shop.js';
+import { renderSettings, linkAccount, signOutAccount } from './ui/settings.js';
 import {
   renderCalendar, renderSchedules, addScheduleInputRow, resetScheduleInputRows,
   removeScheduleInputRow, readScheduleInputRows, moveCalendarMonth, resetCalendarToToday,
@@ -28,7 +29,7 @@ import {
 
 const SCREENS = [
   'home-screen', 'result-screen', 'closet-screen',
-  'shop-screen', 'camera-screen', 'calendar-screen',
+  'shop-screen', 'camera-screen', 'calendar-screen', 'settings-screen',
 ];
 
 /* ---------------- ガチャ ---------------- */
@@ -239,6 +240,12 @@ const actions = {
     await scheduleRepo.remove(el.dataset.id);
     await Promise.all([renderCalendar(), renderSchedules(), refreshHomeWidget()]);
   },
+  'open-settings': async (el) => {
+    navigateTo('settings-screen', { origin: el });
+    await renderSettings();
+  },
+  'link-account': () => linkAccount(),
+  'sign-out-account': () => signOutAccount(),
   'install-app': () => promptInstall(),
   'show-ios-install': () => showIosInstallHelp(),
   'dismiss-install': () => dismissInstall(),

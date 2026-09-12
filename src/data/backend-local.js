@@ -129,6 +129,11 @@ export function createLocalBackend() {
       );
     },
 
+    /** この端末のブラウザにしか保存されていない、という状態を返す */
+    async getAccount() {
+      return { mode: 'local', canLink: false };
+    },
+
     /** ローカルでは data URL をそのまま保持する */
     async uploadImage(itemId, image) {
       return { url: image.dataUrl, path: null };

@@ -43,6 +43,11 @@
     <main id="home-screen" class="relative flex-1 w-full h-full p-5 flex flex-col justify-between items-center overflow-y-auto no-scrollbar">
       <h1 data-screen-title tabindex="-1" class="sr-only">コーデガチャ</h1>
 
+      <!-- 設定への入口 -->
+      <div class="w-full flex justify-end z-10 -mt-1 mb-1">
+        <button type="button" data-action="open-settings" aria-label="設定を開く" class="w-11 h-11 flex items-center justify-center text-gray-600 hover:text-gray-900 active:bg-white/70 rounded-full transition-colors" data-icon="settings" data-icon-class="w-5 h-5"></button>
+      </div>
+
       <!-- 上部エリア -->
       <div class="w-full flex justify-between items-start z-10 gap-2">
         <!-- 【左上】カレンダー -->
@@ -274,6 +279,38 @@
             保存する
           </button>
         </div>
+      </div>
+    </section>
+
+    <!-- =========================================
+         設定画面 (Settings)
+         ========================================= -->
+    <section id="settings-screen" aria-labelledby="settings-title" class="absolute inset-0 bg-white z-55 flex flex-col animate-fade-in hidden">
+      <div class="p-4 flex items-center border-b border-gray-200 bg-white">
+        <button type="button" data-action="back" aria-label="ホームに戻る" class="w-11 h-11 -ml-2 flex items-center justify-center text-gray-600 active:bg-gray-100 rounded-full transition-colors" data-icon="chevron-left" data-icon-class="w-6 h-6"></button>
+        <h2 id="settings-title" data-screen-title tabindex="-1" class="text-lg font-bold mx-auto pr-8">設定</h2>
+      </div>
+
+      <div class="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4 bg-gray-50">
+        <!-- データの保存先とアカウント（src/ui/settings.js が描画） -->
+        <section aria-labelledby="account-heading" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-3">
+          <h3 id="account-heading" class="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+            <span data-icon="cloud" data-icon-class="w-4 h-4 text-blue-700"></span> データの保存先
+          </h3>
+          <div id="account-body" class="flex flex-col gap-3"></div>
+        </section>
+
+        <section aria-labelledby="about-heading" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-2">
+          <h3 id="about-heading" class="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+            <span data-icon="sparkles" data-icon-class="w-4 h-4 text-pink-700"></span> このアプリについて
+          </h3>
+          <p class="text-xs text-gray-700 leading-relaxed">
+            天気と予定に合わせて、登録した服から今日のコーデを提案します。
+          </p>
+          <p class="text-xs text-gray-600 leading-relaxed">
+            天気の情報は <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" class="text-blue-700 underline">Open-Meteo</a> を利用しています。
+          </p>
+        </section>
       </div>
     </section>
 

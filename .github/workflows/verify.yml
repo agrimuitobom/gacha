@@ -60,6 +60,12 @@ jobs:
       - name: 日付の切り替わりと復帰処理
         run: npm run test:lifecycle
 
+      - name: 設定画面とアカウント表示
+        run: npm run test:settings
+
+      - name: 設定画面（Firebase アカウント）
+        run: npm run test:settings:firebase
+
       - name: セキュリティルール（Firebase エミュレータ）
         run: npm run test:rules:ci
 
