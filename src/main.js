@@ -13,6 +13,7 @@ import { loadWeather, renderWeather } from './ui/weather-widget.js';
 import { refreshHomeWidget } from './ui/home.js';
 import { renderCloset, switchTab, handleTabKeydown } from './ui/closet.js';
 import { renderResult } from './ui/result.js';
+import { renderShops } from './ui/shop.js';
 import {
   renderCalendar, renderSchedules, addScheduleInputRow, resetScheduleInputRows,
   removeScheduleInputRow, readScheduleInputRows, moveCalendarMonth, resetCalendarToToday,
@@ -29,7 +30,9 @@ const SCREENS = [
 /* ---------------- ガチャ ---------------- */
 
 let gachaRunning = false;
-const GACHA_SPIN_MS = 1200;
+const GACHA_SPIN_MS = 1200;        // ガチャ演出の長さ
+const REGACHA_SPIN_MS = 400;       // 結果画面での引き直し（すでに結果が見えているので短く）
+const CARD_REMOVE_MS = 200;        // 削除アニメーションの長さ。styles の duration-200 と揃える
 
 function setGachaSpinning(spinning) {
   const button = $('gacha-btn');
@@ -88,7 +91,7 @@ async function regacha() {
   try {
     const [outfit] = await Promise.all([
       buildOutfit(),
-      new Promise((resolve) => setTimeout(resolve, 400)),
+      new Promise((resolve) => setTimeout(resolve, REGACHA_SPIN_MS)),
     ]);
     renderResult(outfit);
   } catch (err) {
@@ -156,7 +159,7 @@ async function deleteClosetItem(id) {
   const card = document.querySelector(`[data-item-card="${CSS.escape(id)}"]`);
   if (card) {
     card.classList.add('transition-all', 'duration-200', 'scale-90', 'opacity-0');
-    setTimeout(() => renderCloset(), 200);
+    setTimeout(() => renderCloset(), CARD_REMOVE_MS);
   } else {
     await renderCloset();
   }
@@ -198,7 +201,10 @@ const actions = {
     navigateTo('closet-screen', { origin: el });
     await renderCloset();
   },
-  'open-shop': (el) => navigateTo('shop-screen', { origin: el }),
+  'open-shop': async (el) => {
+    navigateTo('shop-screen', { origin: el });
+    await renderShops();
+  },
   'open-camera': async (el) => {
     navigateTo('camera-screen', { origin: el });
     await startCamera();

@@ -9,13 +9,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "icons": "node scripts/generate-icons.js",
-    "test": "npm run build && node tests/css-coverage.mjs",
+    "test": "npm run build && node tests/css-coverage.mjs && node tests/csp.mjs",
     "emulators": "firebase emulators:start --project demo-gacha --only auth,firestore,storage",
     "build:emulator": "vite build --mode emulator",
     "preview:emulator": "vite preview --mode emulator --port 4173",
     "test:rules": "node tests/rules.test.mjs",
     "test:e2e": "node tests/e2e.mjs",
-    "test:css": "node tests/css-coverage.mjs"
+    "test:css": "node tests/css-coverage.mjs",
+    "test:csp": "node tests/csp.mjs",
+    "test:contrast": "node tests/contrast.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",

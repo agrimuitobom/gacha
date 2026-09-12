@@ -29,9 +29,12 @@ npm run dev
 | `npm run icons` | PWA アイコンを再生成（`public/icons/`） |
 | `npm run emulators` | Firebase エミュレータ（auth / firestore / storage）を起動 |
 | `npm run build:emulator` | エミュレータ接続用にビルド |
-| `npm test` | ビルド + Tailwind のクラス生成チェック（サーバ不要） |
-| `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
+| `npm test` | ビルド + クラス生成チェック + CSP 検証（サーバ不要で完結） |
+| `npm run test:css` | Tailwind のクラスが生成されているかの検証 |
+| `npm run test:csp` | CSP とセキュリティヘッダの検証 |
 | `npm run test:e2e` | E2E テスト（`npm run preview` が前提） |
+| `npm run test:contrast` | コントラスト比の検証（`npm run preview` が前提） |
+| `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
 
 ## Firebase
 
@@ -111,6 +114,31 @@ users/{uid}/outfits/{outfitId}
 
 Firestore のローカルキャッシュ（`persistentLocalCache`）を有効にしているため、オフラインでも読み書きでき、復帰時に同期されます。複数タブで開いても壊れないよう `persistentMultipleTabManager` を使っています。
 
+## セキュリティ
+
+### Content Security Policy
+
+`firebase.json` の `hosting.headers` で配信します。ビルド後の HTML にインラインの `<script>` / `<style>` / `onclick` が1つも無いため、**`'unsafe-inline'` なしで運用しています**。
+
+```
+script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none' …
+```
+
+あわせて次のヘッダも付けています。
+
+| ヘッダ | 値 | 理由 |
+| --- | --- | --- |
+| `X-Content-Type-Options` | `nosniff` | MIME スニッフィングの抑止 |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | 外部リンク経由でのパス漏れ防止 |
+| `Permissions-Policy` | `camera=(self), geolocation=(self), microphone=(), payment=()` | 使わない機能を明示的に禁止 |
+| `Cross-Origin-Opener-Policy` | `same-origin-allow-popups` | `same-origin` にすると Google サインインのポップアップが壊れるため |
+
+`npm run test:csp` で、`firebase.json` のヘッダをそのまま適用した状態でアプリを操作し、CSP 違反が発生しないこと、かつ**インラインスクリプトの注入が実際に阻止されること**まで確認できます。
+
+> CSP はホスティング側のヘッダで効きます。`npm run dev` / `npm run preview` には付きません。Firebase Hosting 以外へ配置する場合は、同じヘッダをそのサーバに設定してください。
+
+> 独自の認証ドメインを使う場合は `frame-src` に、Cloud Functions を使う場合は `connect-src` に、それぞれ追記が必要です。
+
 ## 構成
 
 ```
@@ -126,6 +154,7 @@ src/
     backend-firebase.js   Firestore + Cloud Storage 実装
     firebase-app.js       SDK 初期化・認証
     repositories.js       アプリが触る唯一のデータ層
+    shops.js              周辺の服屋（静的データ + 営業時間判定）
   domain/
     gacha.js              抽選ロジック（DOM非依存）
     weather.js            天気取得（DOM非依存）
@@ -134,6 +163,8 @@ src/
 tests/
   rules.test.mjs        セキュリティルール検証
   e2e.mjs               E2E（機能・アクセシビリティ・PWA）
+  csp.mjs               CSP とセキュリティヘッダの検証
+  contrast.mjs          コントラスト比（WCAG AA）の検証
   css-coverage.mjs      Tailwind のクラスが生成されているかの検証
 ```
 
@@ -147,6 +178,9 @@ tests/
 - `Escape` で前の画面に戻れます
 - タップ対象は 44px 以上、入力欄は 16px 以上（iOS のフォーカス時ズーム防止）
 - `prefers-reduced-motion` を尊重します
+- 全画面で WCAG 2.1 AA のコントラスト比（通常 4.5:1 / 大きい文字 3:1）を満たします
+
+コントラストは `npm run test:contrast` で自動検証しています。グラデーション背景は最も不利な色停止点で判定し、親要素の `opacity` も計算に含めます。
 
 ## 天気について
 
@@ -155,6 +189,16 @@ tests/
 取得に失敗したときは、**架空の気温を表示しません**。気温はコーデ提案の主要な入力なので、嘘の値を出すと誤った提案に直結するためです。取得できなかった旨を表示し、ガチャは気温を考慮せずに継続します。
 
 位置情報は、天気ウィジェットをタップしたときだけ要求します。起動直後に理由なく許可を求めないようにするためです。既定は愛媛県西条市です（`src/domain/weather.js`）。
+
+## 公開URLの設定
+
+OGP の `og:image` / `og:url` は絶対URLでなければクローラが解決できません。ドメインが決まったら `.env` に設定してください。
+
+```
+VITE_SITE_URL=https://your-app.web.app
+```
+
+未設定でも動作します（相対パスのまま出力されます）。
 
 ## ライセンス
 

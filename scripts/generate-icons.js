@@ -54,3 +54,33 @@ for (const target of TARGETS) {
 
 await writeFile(resolve(publicDir, 'favicon.svg'), buildSvg({ size: 64, glyphScale: 0.66 }), 'utf8');
 console.log('generated favicon.svg');
+
+/** SNS 共有時に表示される OGP 画像 */
+function buildOgSvg() {
+  const width = 1200;
+  const height = 630;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="55%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" fill="url(#g)"/>
+  <g transform="translate(190 315) scale(2.3) translate(-50 -50)"
+     fill="none" stroke="#ffffff" stroke-width="7"
+     stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <path d="M50 34 v8"/>
+    <path d="M50 34 a8 8 0 1 1 8 -8"/>
+    <path d="M50 42 L14 66 a3 3 0 0 0 2 5 h68 a3 3 0 0 0 2 -5 Z"/>
+  </g>
+  <text x="360" y="300" font-family="Hiragino Sans, Noto Sans JP, sans-serif"
+        font-size="76" font-weight="700" fill="#ffffff">コーデガチャ</text>
+  <text x="362" y="370" font-family="Hiragino Sans, Noto Sans JP, sans-serif"
+        font-size="32" font-weight="500" fill="#ffffff" opacity="0.9">天気と予定に合わせて、手持ちの服から提案</text>
+</svg>`;
+}
+
+await sharp(Buffer.from(buildOgSvg())).png().toFile(resolve(publicDir, 'og-image.png'));
+console.log('generated og-image.png (1200x630)');

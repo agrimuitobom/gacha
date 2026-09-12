@@ -1,9 +1,32 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+/**
+ * OGP の og:image / og:url は絶対URLでなければクローラが解決できない。
+ * VITE_SITE_URL が設定されていれば、ビルド時に相対パスを絶対URLへ書き換える。
+ * 未設定なら相対パスのまま出力する（開発・プレビュー用）。
+ */
+function absoluteUrls(siteUrl) {
+  return {
+    name: 'absolute-og-urls',
+    transformIndexHtml(html) {
+      if (!siteUrl) return html;
+      const base = siteUrl.replace(/\/$/, '');
+      return html.replace(
+        /(<meta\s+(?:property|name)="(?:og:image|og:url|twitter:image)"\s+content=")(\/[^"]*)"/g,
+        (_match, prefix, path) => `${prefix}${base}${path}"`
+      );
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const siteUrl = loadEnv(mode, process.cwd(), 'VITE_').VITE_SITE_URL || '';
+
+  return {
   plugins: [
+    absoluteUrls(siteUrl),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -78,4 +101,5 @@ export default defineConfig({
       },
     },
   },
+  };
 });

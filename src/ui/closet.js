@@ -39,7 +39,7 @@ function closetCard(item) {
     ),
     itemThumbnail(item, 'w-full aspect-square mb-2'),
     h('p', { class: 'text-xs font-bold text-gray-800 text-center', text: item.name }),
-    h('p', { class: 'text-[11px] text-gray-600 mt-0.5 text-center', text: warmthLabel(item) })
+    h('p', { class: 'text-xs text-gray-600 mt-0.5 text-center', text: warmthLabel(item) })
   );
 }
 
