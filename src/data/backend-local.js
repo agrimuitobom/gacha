@@ -77,6 +77,40 @@ export function createLocalBackend() {
       );
     },
 
+    get(name, id) {
+      return guard(
+        name,
+        'readonly',
+        (store) => store.get(id),
+        () => memory.get(name).get(id) ?? null
+      ).then((doc) => doc ?? null);
+    },
+
+    /**
+     * 条件に合うものだけを返す。
+     * ローカルは取得コストが無いので、全件読んでから絞る。
+     * （Firebase 側は同じ条件を Firestore のクエリに変換する）
+     */
+    query(name, { where = [], limit } = {}) {
+      return guard(
+        name,
+        'readonly',
+        (store) => store.getAll(),
+        () => Array.from(memory.get(name).values())
+      ).then((docs) => {
+        const matched = docs.filter((doc) =>
+          where.every(([field, op, value]) => {
+            const actual = doc[field];
+            if (op === '==') return actual === value;
+            if (op === '>=') return actual >= value;
+            if (op === '<=') return actual <= value;
+            throw new Error(`未対応の演算子: ${op}`);
+          })
+        );
+        return typeof limit === 'number' ? matched.slice(0, limit) : matched;
+      });
+    },
+
     put(name, doc) {
       return guard(
         name,

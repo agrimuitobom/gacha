@@ -63,5 +63,8 @@ jobs:
       - name: セキュリティルール（Firebase エミュレータ）
         run: npm run test:rules:ci
 
+      - name: Firestore の読み取り件数
+        run: npm run test:read-cost:ci
+
       - name: E2E（Firebase 経路・エミュレータ）
         run: npm run test:e2e:firebase

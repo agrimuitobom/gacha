@@ -1,11 +1,14 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
   query,
+  where as whereClause,
   orderBy,
+  limit as limitClause,
 } from 'firebase/firestore';
 import {
   ref as storageRef,
@@ -47,6 +50,29 @@ export function createFirebaseBackend() {
 
     async list(name) {
       const snapshot = await getDocs(query(userCollection(name), orderBy('createdAt', 'desc')));
+      return snapshot.docs.map((document) => ({ id: document.id, ...document.data() }));
+    },
+
+    async get(name, id) {
+      const { db } = getFirebase();
+      const snapshot = await getDoc(doc(db, 'users', uid, name, id));
+      return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+    },
+
+    /**
+     * 条件に合うものだけを読む。
+     *
+     * Firestore は読み取ったドキュメント数で課金されるので、
+     * 全件取ってから絞ると、データが増えるほど費用と待ち時間が増える。
+     *
+     * orderBy は付けない。等価条件と別フィールドの並べ替えを混ぜると
+     * 複合インデックスが要るが、絞り込んだ後の件数は少ないので
+     * 呼び出し側で並べ替えれば足りる。
+     */
+    async query(name, { where = [], limit } = {}) {
+      const constraints = where.map(([field, op, value]) => whereClause(field, op, value));
+      if (typeof limit === 'number') constraints.push(limitClause(limit));
+      const snapshot = await getDocs(query(userCollection(name), ...constraints));
       return snapshot.docs.map((document) => ({ id: document.id, ...document.data() }));
     },
 

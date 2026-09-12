@@ -40,8 +40,7 @@ export const closetRepo = {
 
   async remove(id) {
     const backend = await getBackend();
-    const items = await backend.list(CLOSET_ITEMS);
-    const target = items.find((item) => item.id === id);
+    const target = await backend.get(CLOSET_ITEMS, id);
 
     // 画像を先に消す。ドキュメントを先に消すと、失敗時に孤児ファイルが残る。
     if (target?.imagePath) {
@@ -54,15 +53,22 @@ export const closetRepo = {
 export const scheduleRepo = {
   async listByDate(dateKey) {
     const backend = await getBackend();
-    const all = await backend.list(SCHEDULES);
-    return all.filter((item) => item.date === dateKey).sort(compareSchedules);
+    const matched = await backend.query(SCHEDULES, { where: [['date', '==', dateKey]] });
+    return matched.sort(compareSchedules);
   },
 
-  /** カレンダーの点表示用：予定が1件以上ある日付キーの Set */
-  async datesWithSchedule() {
+  /**
+   * カレンダーの点表示用：指定期間に予定がある日付キーの Set。
+   *
+   * 表示中の月だけを読む。全件読むと、使い込むほど
+   * カレンダーを開くたびの読み取り量が増えていく。
+   */
+  async datesWithSchedule(fromKey, toKey) {
     const backend = await getBackend();
-    const all = await backend.list(SCHEDULES);
-    return new Set(all.map((item) => item.date));
+    const matched = await backend.query(SCHEDULES, {
+      where: [['date', '>=', fromKey], ['date', '<=', toKey]],
+    });
+    return new Set(matched.map((item) => item.date));
   },
 
   async add(dateKey, { time, title }) {
@@ -92,8 +98,11 @@ function compareSchedules(a, b) {
 export const outfitRepo = {
   async findByDate(dateKey) {
     const backend = await getBackend();
-    const all = await backend.list(OUTFITS);
-    return all.find((item) => item.date === dateKey) || null;
+    const [found] = await backend.query(OUTFITS, {
+      where: [['date', '==', dateKey]],
+      limit: 1,
+    });
+    return found || null;
   },
 
   async save(dateKey, outfit) {
@@ -136,8 +145,7 @@ const SEED_MARKER_ID = 'seed';
  */
 export async function seedIfNeeded() {
   const backend = await getBackend();
-  const markers = await backend.list(META);
-  if (markers.some((doc) => doc.id === SEED_MARKER_ID)) return false;
+  if (await backend.get(META, SEED_MARKER_ID)) return false;
 
   // この変更より前からある利用者は、既にアイテムを持っているので投入しない
   const existing = await closetRepo.list();

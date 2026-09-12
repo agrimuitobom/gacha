@@ -12,7 +12,13 @@ export async function renderCalendar() {
 
   const firstWeekday = new Date(state.calYear, state.calMonth, 1).getDay();
   const daysInMonth = new Date(state.calYear, state.calMonth + 1, 0).getDate();
-  const scheduledDates = await scheduleRepo.datesWithSchedule();
+
+  // 表示している月のぶんだけ問い合わせる
+  const monthPrefix = `${state.calYear}-${String(state.calMonth + 1).padStart(2, '0')}`;
+  const scheduledDates = await scheduleRepo.datesWithSchedule(
+    `${monthPrefix}-01`,
+    `${monthPrefix}-${String(daysInMonth).padStart(2, '0')}`
+  );
 
   for (let i = 0; i < firstWeekday; i += 1) {
     grid.appendChild(h('div', { class: 'h-11', 'aria-hidden': 'true' }));
