@@ -3,6 +3,22 @@ import { setIcon } from './icons.js';
 import { state } from '../state.js';
 import { DEFAULT_LOCATION, fetchWeather, getCurrentPosition, reverseGeocode } from '../domain/weather.js';
 
+/**
+ * この時間より古い天気は、復帰時に取り直す。
+ * 短すぎると復帰のたびにAPIを叩き、長すぎると古い気温でコーデを選んでしまう。
+ */
+const WEATHER_MAX_AGE_MS = 10 * 60 * 1000;
+
+export function isWeatherStale(now = Date.now()) {
+  return now - state.weatherFetchedAt > WEATHER_MAX_AGE_MS;
+}
+
+/** 古くなっていれば取り直す（復帰時に使う） */
+export function refreshWeatherIfStale() {
+  if (!isWeatherStale()) return Promise.resolve(false);
+  return loadWeather(false).then(() => true);
+}
+
 export function renderWeather() {
   const tempEl = $('weather-temp');
   const descEl = $('weather-desc');
@@ -49,12 +65,15 @@ export async function loadWeather(useCurrentLocation = false) {
   try {
     state.weather = await fetchWeather(location.lat, location.lon, location.name);
     state.weatherError = null;
+    state.weatherFetchedAt = Date.now();
   } catch (err) {
     // 取得に失敗したときに架空の気温を表示しない。
     // 誤ったコーデ提案の直接の原因になるため、失敗は失敗として扱う。
     console.error('天気データの取得に失敗しました:', err);
     state.weather = null;
     state.weatherError = navigator.onLine ? '天気を取得できません' : 'オフラインです';
+    // 失敗も「試した」記録として残し、復帰のたびに連打しないようにする
+    state.weatherFetchedAt = Date.now();
   }
 
   renderWeather();

@@ -8,7 +8,8 @@ import { ALL_COLLECTIONS } from './collections.js';
  */
 
 const DB_NAME = 'coordi-gacha';
-const DB_VERSION = 1;
+// オブジェクトストアを増やしたらここを上げる（2 で meta を追加）
+const DB_VERSION = 2;
 
 export function createLocalBackend() {
   let dbPromise = null;

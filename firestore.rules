@@ -78,6 +78,15 @@ service cloud.firestore {
       allow create, update: if isOwner(userId) && validOutfit(request.resource.data);
     }
 
+    // アプリ自身の状態（サンプル投入済みフラグなど）。
+    // 利用者のデータではないので、形だけ検証して素通しさせる。
+    match /users/{userId}/meta/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && request.resource.data.keys().hasOnly(['seededAt'])
+                            && isTimestampMs(request.resource.data.seededAt);
+    }
+
     // 上記以外は明示的に拒否する
     match /{document=**} {
       allow read, write: if false;

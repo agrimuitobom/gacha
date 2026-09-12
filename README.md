@@ -36,6 +36,7 @@ npm run dev
 | `npm run test:e2e` | E2E テスト（プレビューサーバは自動で起動・停止） |
 | `npm run test:contrast` | コントラスト比の検証（同上） |
 | `npm run test:image` | 撮影画像が縮小・圧縮されているかの検証 |
+| `npm run test:lifecycle` | 日付の切り替わり・復帰処理の検証 |
 | `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
 | `npm run test:rules:ci` | 同上（エミュレータの起動・停止まで自動） |
 | `npm run test:e2e:firebase` | Firebase 経路の E2E（エミュレータ込みで自動） |
@@ -165,7 +166,12 @@ users/{uid}/outfits/{outfitId}
   topsId / bottomsId / shoesId: string | null
   decidedAt: number
   createdAt: number
+
+users/{uid}/meta/{docId}
+  seededAt: number     … サンプル投入済みフラグ
 ```
+
+`meta` はアプリ自身の状態を置く場所です。サンプルの投入を「0件なら入れる」で判定すると、利用者が全部削除したときに次回起動で復活してしまうため、投入したこと自体を記録しています。アカウントに紐づくので機種変更しても復活しません。
 
 画像は Cloud Storage の `users/{uid}/closet/{itemId}.{webp|jpg}` に置きます。撮影時の処理は後述の「画像の容量」を参照してください。
 
@@ -178,6 +184,19 @@ users/{uid}/outfits/{outfitId}
 ### オフライン対応
 
 Firestore のローカルキャッシュ（`persistentLocalCache`）を有効にしているため、オフラインでも読み書きでき、復帰時に同期されます。複数タブで開いても壊れないよう `persistentMultipleTabManager` を使っています。
+
+## 日付の切り替わりと復帰
+
+インストールして使うと、アプリは終了せずバックグラウンドに残ります。起動時に一度求めた日付や天気を持ち続けると、**翌朝開いたときに昨日の情報のまま操作する**ことになります（昨日の予定でコーデを選び、昨日の日付でコーデを保存してしまう）。
+
+`src/lifecycle.js` が次の2つを監視しています。
+
+- **日付の切り替わり** — 次の0時にタイマーを仕掛け、切り替わったら「今日」を取り直して表示を作り直します。バックグラウンドではタイマーが止められることがあるため、復帰のたびに張り直します
+- **復帰** — `visibilitychange` に加え、`pageshow`（bfcache からの復元）も拾います。iOS では前者が来ないことがあるためです
+
+天気は**取得から10分以上経っていれば**復帰時に取り直します。毎回叩くとAPIを無駄に消費し、放置すると朝の気温で夜のコーデを選ぶことになるためです。
+
+`npm run test:lifecycle` が仮想時計で日付をまたがせ、表示とガチャの入力が切り替わることを検証します（CI でも実行）。
 
 ## 画像の容量
 

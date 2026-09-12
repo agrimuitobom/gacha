@@ -76,6 +76,15 @@ await check('本人はコーデ記録を作成できる', assertSucceeds(setDoc(
     decidedAt: 1757600000000, createdAt: 1757600000000 }
 )));
 
+await check('本人はサンプル投入済みフラグを書ける', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'meta', 'seed'), { seededAt: 1757600000000 }
+)));
+await check('meta に未知のフィールドは書けない', assertFails(setDoc(
+  doc(alice, 'users', ALICE, 'meta', 'seed'), { seededAt: 1757600000000, isAdmin: true }
+)));
+await check('他人の meta は読めない',
+  assertFails(getDoc(doc(bob, 'users', ALICE, 'meta', 'seed'))));
+
 /* ---- 他人・未認証の遮断 ---- */
 await check('他人は読めない', assertFails(getDoc(itemRef(bob))));
 await check('他人は書き込めない', assertFails(setDoc(itemRef(bob), validItem)));

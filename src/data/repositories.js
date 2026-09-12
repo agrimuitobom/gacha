@@ -1,6 +1,6 @@
 import { getBackend } from './backend.js';
 import { newId } from './ids.js';
-import { CLOSET_ITEMS, SCHEDULES, OUTFITS } from './collections.js';
+import { CLOSET_ITEMS, SCHEDULES, OUTFITS, META } from './collections.js';
 
 /**
  * アプリが触るのはこの層だけ。
@@ -123,11 +123,30 @@ const SEED_ITEMS = [
   { category: 'shoes', name: 'キャンバススニーカー', colorClass: 'bg-amber-100', warmth: 2, formality: 1, rainSafe: false },
 ];
 
-export async function seedIfEmpty() {
+const SEED_MARKER_ID = 'seed';
+
+/**
+ * 初回だけサンプルを投入する。
+ *
+ * 「0件なら入れる」だけだと、利用者がサンプルを全部消したときに
+ * 次の起動で復活してしまう。投入したこと自体を記録して、
+ * 一度実行したら二度と入れないようにする。
+ *
+ * 記録はアカウントに紐づくので、機種変更しても復活しない。
+ */
+export async function seedIfNeeded() {
+  const backend = await getBackend();
+  const markers = await backend.list(META);
+  if (markers.some((doc) => doc.id === SEED_MARKER_ID)) return false;
+
+  // この変更より前からある利用者は、既にアイテムを持っているので投入しない
   const existing = await closetRepo.list();
-  if (existing.length > 0) return false;
-  for (const item of SEED_ITEMS) {
-    await closetRepo.add(item);
+  if (existing.length === 0) {
+    for (const item of SEED_ITEMS) {
+      await closetRepo.add(item);
+    }
   }
-  return true;
+
+  await backend.put(META, { id: SEED_MARKER_ID, seededAt: Date.now() });
+  return existing.length === 0;
 }

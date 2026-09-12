@@ -3,13 +3,14 @@ import './styles.css';
 import { $ } from './ui/dom.js';
 import { setIcon } from './ui/icons.js';
 import { state } from './state.js';
-import { closetRepo, scheduleRepo, outfitRepo, seedIfEmpty } from './data/repositories.js';
+import { initLifecycle } from './lifecycle.js';
+import { closetRepo, scheduleRepo, outfitRepo, seedIfNeeded } from './data/repositories.js';
 import { getBackend } from './data/backend.js';
 import { isFirebaseConfigured } from './config/env.js';
 import { drawOutfit } from './domain/gacha.js';
 import { initScreens, navigateTo, navigateBack, currentScreen, onScreenEnter } from './ui/screens.js';
 import { showToast } from './ui/toast.js';
-import { loadWeather, renderWeather } from './ui/weather-widget.js';
+import { loadWeather, renderWeather, refreshWeatherIfStale } from './ui/weather-widget.js';
 import { refreshHomeWidget } from './ui/home.js';
 import { renderCloset, switchTab, handleTabKeydown } from './ui/closet.js';
 import { renderResult } from './ui/result.js';
@@ -287,6 +288,29 @@ function registerEventHandlers() {
 
 /* ---------------- 初期化 ---------------- */
 
+/**
+ * 日付が変わったときの処理。
+ *
+ * 「今日」を見ている表示を全部作り直す。カレンダーの当日強調も
+ * ずれるので、開いていれば描き直す。
+ */
+async function handleDateChange() {
+  await refreshHomeWidget();
+  if (currentScreen() === 'calendar-screen') {
+    await Promise.all([renderCalendar(), renderSchedules()]);
+  }
+  showToast('日付が変わりました', { iconName: 'calendar', iconColor: 'text-rose-300' });
+}
+
+/**
+ * バックグラウンドから戻ったときの処理。
+ * インストールして使うと、アプリは終了せず残り続ける。
+ */
+async function handleResume() {
+  await refreshHomeWidget();
+  await refreshWeatherIfStale();
+}
+
 function renderStaticIcons() {
   for (const element of document.querySelectorAll('[data-icon]')) {
     setIcon(element, element.dataset.icon, element.dataset.iconClass || 'w-4 h-4');
@@ -328,6 +352,7 @@ async function init() {
   registerEventHandlers();
   onScreenEnter('home-screen', refreshHomeWidget);
   initPwa();
+  initLifecycle({ onDateChange: handleDateChange, onResume: handleResume });
 
   // 天気はデータ層と独立に取得できるので待たずに始める
   loadWeather(false);
@@ -339,7 +364,7 @@ async function init() {
         iconName: 'wifi-off', iconColor: 'text-amber-400',
       });
     }
-    await seedIfEmpty();
+    await seedIfNeeded();
   } catch (err) {
     console.error('データの初期化に失敗しました:', err);
     showToast('データを読み込めませんでした', { iconName: 'alert-circle', iconColor: 'text-amber-400' });

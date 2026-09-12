@@ -57,6 +57,9 @@ jobs:
       - name: 撮影画像の縮小・圧縮
         run: npm run test:image
 
+      - name: 日付の切り替わりと復帰処理
+        run: npm run test:lifecycle
+
       - name: セキュリティルール（Firebase エミュレータ）
         run: npm run test:rules:ci
 

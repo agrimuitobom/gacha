@@ -10,6 +10,7 @@ export const state = {
   activeTab: 'tops',
   weather: null,
   weatherError: null,
+  weatherFetchedAt: 0,
   currentOutfit: null,
   pendingPhoto: null,
 };
