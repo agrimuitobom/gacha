@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // データは users/{uid} 配下にのみ置く。
+    // 他ユーザーのドキュメントへ到達する経路をそもそも作らない。
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isInt(value, min, max) {
+      return value is int && value >= min && value <= max;
+    }
+
+    function isText(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    // 'YYYY-MM-DD'
+    function isDateKey(value) {
+      return value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isTimestampMs(value) {
+      return value is int && value > 0;
+    }
+
+    function validClosetItem(data) {
+      return data.keys().hasOnly([
+               'category', 'name', 'imageUrl', 'imagePath', 'colorClass',
+               'warmth', 'formality', 'rainSafe', 'createdAt'
+             ])
+             && data.category in ['tops', 'bottoms', 'shoes']
+             && isText(data.name, 40)
+             && isInt(data.warmth, 1, 5)
+             && isInt(data.formality, 1, 3)
+             && data.rainSafe is bool
+             && isTimestampMs(data.createdAt)
+             && (data.imageUrl == null || data.imageUrl is string)
+             // 画像は必ず自分の領域を指していること
+             && (data.imagePath == null ||
+                 (data.imagePath is string &&
+                  data.imagePath.matches('^users/' + request.auth.uid + '/closet/.*')))
+             && (data.colorClass == null || isText(data.colorClass, 40));
+    }
+
+    function validSchedule(data) {
+      return data.keys().hasOnly(['date', 'time', 'title', 'createdAt'])
+             && isDateKey(data.date)
+             && isText(data.time, 10)
+             && isText(data.title, 60)
+             && isTimestampMs(data.createdAt);
+    }
+
+    function validOutfit(data) {
+      return data.keys().hasOnly(['date', 'topsId', 'bottomsId', 'shoesId', 'decidedAt', 'createdAt'])
+             && isDateKey(data.date)
+             && (data.topsId == null || data.topsId is string)
+             && (data.bottomsId == null || data.bottomsId is string)
+             && (data.shoesId == null || data.shoesId is string)
+             && isTimestampMs(data.decidedAt)
+             && isTimestampMs(data.createdAt);
+    }
+
+    match /users/{userId}/closetItems/{itemId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validClosetItem(request.resource.data);
+    }
+
+    match /users/{userId}/schedules/{scheduleId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validSchedule(request.resource.data);
+    }
+
+    match /users/{userId}/outfits/{outfitId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validOutfit(request.resource.data);
+    }
+
+    // 上記以外は明示的に拒否する
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
