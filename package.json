@@ -21,7 +21,8 @@
     "test:rules:ci": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"node tests/rules.test.mjs\"",
     "test:e2e:firebase": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"npm run build:emulator && CHECK_FIREBASE=true node scripts/serve-and-run.js -- node tests/e2e.mjs\"",
     "check:env": "node scripts/check-env.js",
-    "build:deploy": "npm run check:env && vite build"
+    "build:deploy": "npm run check:env && vite build",
+    "screenshots": "npm run build && node scripts/serve-and-run.js -- node scripts/generate-screenshots.js"
   },
   "dependencies": {
     "firebase": "^12.19.0",

@@ -150,6 +150,8 @@ const AUDIT = `(() => {
     for (let node = element; node && node.nodeType === 1; node = node.parentElement) {
       effectiveAlpha *= Number(getComputedStyle(node).opacity);
     }
+    // 実質的に見えていない要素（アニメーション終端のトースト等）は測っても意味がない
+    if (effectiveAlpha < 0.05) continue;
     const textColor = { ...fg, a: effectiveAlpha };
 
     const size = parseFloat(style.fontSize);
@@ -200,6 +202,16 @@ async function audit(label) {
 }
 
 await audit('ホーム');
+
+// インストール案内バナーは beforeinstallprompt でしか出ないので、模擬して検査する
+await page.evaluate(() => {
+  const event = new Event('beforeinstallprompt');
+  event.prompt = () => {};
+  event.userChoice = Promise.resolve({ outcome: 'accepted' });
+  window.dispatchEvent(event);
+});
+await page.waitForTimeout(400);
+await audit('ホーム（インストール案内あり）');
 
 await page.click('#gacha-btn');
 await page.waitForSelector('#result-screen:not(.hidden)');

@@ -8,7 +8,7 @@
 - **マイクローゼット** — 服を撮影して登録（厚み・きれいめ度・雨への強さを属性として保持）
 - **カレンダー＆予定** — 予定を登録すると、その日のコーデ提案に反映されます
 - **周辺の服屋** — 近隣ショップの情報
-- **PWA** — ホーム画面に追加してオフラインでも起動できます
+- **PWA** — ホーム画面に追加してアプリとして起動でき、オフラインでも動きます
 
 ## セットアップ
 
@@ -26,7 +26,8 @@ npm run dev
 | `npm run dev` | 開発サーバ |
 | `npm run build` | 本番ビルド（`dist/`） |
 | `npm run preview` | ビルド結果をローカルで確認 |
-| `npm run icons` | PWA アイコンを再生成（`public/icons/`） |
+| `npm run icons` | アイコンと OGP 画像を再生成（`public/`） |
+| `npm run screenshots` | manifest 用スクリーンショットを再生成 |
 | `npm run emulators` | Firebase エミュレータ（auth / firestore / storage）を起動 |
 | `npm run build:emulator` | エミュレータ接続用にビルド |
 | `npm test` | ビルド + クラス生成チェック + CSP 検証（サーバ不要で完結） |
@@ -177,6 +178,53 @@ users/{uid}/outfits/{outfitId}
 
 Firestore のローカルキャッシュ（`persistentLocalCache`）を有効にしているため、オフラインでも読み書きでき、復帰時に同期されます。複数タブで開いても壊れないよう `persistentMultipleTabManager` を使っています。
 
+## PWA
+
+ホーム画面に追加すると、ブラウザのUIなしで単独のアプリとして起動します。
+
+### インストール導線
+
+ブラウザ既定の導線はメニューの奥にあって気づかれないため、自前の案内を出しています。
+
+- **Chrome / Edge / Android** — `beforeinstallprompt` を受け取ったらホーム画面下部に案内を表示し、「追加」でブラウザのインストールダイアログを開きます
+- **iOS Safari** — 同イベントに対応していないので、共有ボタンからの手順を案内します
+- 閉じた場合は14日間再表示しません（`localStorage`。使えない環境では毎回出ます）
+- インストール済み（`display-mode: standalone`）なら出しません
+
+### 更新の通知
+
+`registerType` は `prompt` です。`autoUpdate` だと新バージョンを検知した瞬間にリロードがかかり、撮影フォームの入力中などに巻き込まれるため、**更新するかを利用者に委ねています**。新しい Service Worker を検知するとトーストと案内を出し、「更新」を押したときだけ再読み込みします。
+
+### ショートカット
+
+アイコンを長押しすると出るメニューです。クエリパラメータで起動時の画面を指定します。
+
+| ショートカット | URL | 動作 |
+| --- | --- | --- |
+| コーデを引く | `/?action=gacha` | 天気の取得を待ってからガチャを実行 |
+| クローゼット | `/?screen=closet` | クローゼットを開く |
+| 予定を追加 | `/?screen=calendar` | カレンダーを開く |
+
+処理後はクエリを `history.replaceState` で取り除きます。残すとリロードのたびに再実行されるためです。
+
+### キャッシュ戦略
+
+| 対象 | 戦略 | 理由 |
+| --- | --- | --- |
+| アプリ本体（HTML/JS/CSS/アイコン） | プリキャッシュ | オフラインで起動できるように |
+| 天気API | NetworkFirst（8秒でタイムアウト） | 鮮度が重要。オフライン時のみ直近の値 |
+| クローゼットの画像 | CacheFirst（30日） | 変わらないので取り直さない |
+| Firebase SDK | StaleWhileRevalidate | 600KB超あるので初回プリキャッシュから除外 |
+
+### 画像の生成
+
+アイコンと、インストールダイアログ用のスクリーンショットはスクリプトで生成し、リポジトリにコミットしています（CI でブラウザを立ち上げ直さずに済むように）。
+
+```bash
+npm run icons        # アイコン + OGP画像
+npm run screenshots  # manifest の screenshots（実際の画面を撮影）
+```
+
 ## セキュリティ
 
 ### Content Security Policy
@@ -223,6 +271,7 @@ src/
     weather.js            天気取得（DOM非依存）
     dates.js              日付ユーティリティ
   ui/                   画面ごとの描画とフォーカス管理
+    pwa.js              インストール導線・更新通知・オフライン表示
 .github/workflows/
   verify.yml            ビルドと全テスト（再利用可能）
   ci.yml                PR 検証 + プレビューデプロイ
@@ -231,6 +280,7 @@ scripts/
   check-env.js          デプロイ前の設定チェック
   serve-and-run.js      プレビュー起動 → テスト実行 → 後片付け
   generate-icons.js     アイコンと OGP 画像の生成
+  generate-screenshots.js  manifest 用スクリーンショットの生成
 tests/
   rules.test.mjs        セキュリティルール検証
   e2e.mjs               E2E（機能・アクセシビリティ・PWA）

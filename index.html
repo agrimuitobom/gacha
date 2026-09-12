@@ -84,7 +84,11 @@
       </div>
 
       <!-- 下部エリア -->
-      <div class="w-full flex justify-between items-end z-10 pb-2">
+      <div class="w-full z-10 pb-2">
+        <!-- インストール案内・更新通知の置き場（src/ui/pwa.js が差し込む） -->
+        <div id="install-slot" aria-live="polite"></div>
+
+        <div class="w-full flex justify-between items-end">
         <button type="button" data-action="open-closet" class="flex flex-col items-center gap-2 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px]">
           <span class="w-12 h-12 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center" data-icon="camera" data-icon-class="w-6 h-6"></span>
           <span class="text-xs font-bold text-gray-800">クローゼット</span>
@@ -94,6 +98,7 @@
           <span class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center" data-icon="shopping-bag" data-icon-class="w-6 h-6"></span>
           <span class="text-xs font-bold text-gray-800">服屋を探す</span>
         </button>
+        </div>
       </div>
     </main>
 

@@ -21,6 +21,9 @@ import {
 import {
   startCamera, stopCamera, takePhoto, hideCaptureForm, readCaptureForm, isCameraActive,
 } from './ui/camera.js';
+import {
+  initPwa, promptInstall, dismissInstall, showIosInstallHelp, reloadForUpdate,
+} from './ui/pwa.js';
 
 const SCREENS = [
   'home-screen', 'result-screen', 'closet-screen',
@@ -235,6 +238,10 @@ const actions = {
     await scheduleRepo.remove(el.dataset.id);
     await Promise.all([renderCalendar(), renderSchedules(), refreshHomeWidget()]);
   },
+  'install-app': () => promptInstall(),
+  'show-ios-install': () => showIosInstallHelp(),
+  'dismiss-install': () => dismissInstall(),
+  'reload-for-update': () => reloadForUpdate(),
 };
 
 function registerEventHandlers() {
@@ -286,12 +293,41 @@ function renderStaticIcons() {
   }
 }
 
+/**
+ * manifest の shortcuts から起動されたときの初期画面を処理する。
+ *   /?action=gacha    … そのままガチャを引く
+ *   /?screen=closet   … クローゼットを開く
+ *   /?screen=calendar … カレンダーを開く
+ */
+async function handleLaunchIntent() {
+  const params = new URLSearchParams(location.search);
+  const action = params.get('action');
+  const screen = params.get('screen');
+  if (!action && !screen) return;
+
+  // 履歴に残すとリロードのたびに再実行されるので、URL から取り除く
+  history.replaceState(null, '', location.pathname);
+
+  if (screen === 'closet') {
+    await actions['open-closet'](null);
+  } else if (screen === 'calendar') {
+    await actions['open-calendar'](null);
+  } else if (action === 'gacha') {
+    // 天気の取得を少し待ってから引く（気温を反映させたいため）
+    await new Promise((resolve) => setTimeout(resolve, WEATHER_GRACE_MS));
+    await startGacha(null);
+  }
+}
+
+const WEATHER_GRACE_MS = 1500;
+
 async function init() {
   renderStaticIcons();
   initScreens(SCREENS);
   switchTab('tops');
   registerEventHandlers();
   onScreenEnter('home-screen', refreshHomeWidget);
+  initPwa();
 
   // 天気はデータ層と独立に取得できるので待たずに始める
   loadWeather(false);
@@ -311,6 +347,7 @@ async function init() {
 
   await refreshHomeWidget();
   resetScheduleInputRows();
+  await handleLaunchIntent();
 
   if (import.meta.env.DEV) {
     console.info(`保存先: ${isFirebaseConfigured ? 'Firebase' : 'ブラウザ内 (IndexedDB)'}`);
