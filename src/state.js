@@ -12,5 +12,4 @@ export const state = {
   weatherError: null,
   weatherFetchedAt: 0,
   currentOutfit: null,
-  pendingPhoto: null,
 };

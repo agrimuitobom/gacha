@@ -37,6 +37,16 @@ function closetCard(item) {
         icon('trash-2', 'w-3.5 h-3.5')
       )
     ),
+    h('button', {
+      type: 'button',
+      class: 'absolute top-1 left-1 z-10 w-11 h-11 flex items-center justify-center text-white transition-colors',
+      'aria-label': `${item.name} を編集`,
+      dataset: { action: 'edit-item', id: item.id },
+    },
+      h('span', { class: 'w-6 h-6 bg-gray-900/70 hover:bg-blue-600 active:bg-blue-700 rounded-full flex items-center justify-center shadow-sm transition-colors' },
+        icon('pencil', 'w-3.5 h-3.5')
+      )
+    ),
     itemThumbnail(item, 'w-full aspect-square mb-2'),
     h('p', { class: 'text-xs font-bold text-gray-800 text-center', text: item.name }),
     h('p', { class: 'text-xs text-gray-600 mt-0.5 text-center', text: warmthLabel(item) })

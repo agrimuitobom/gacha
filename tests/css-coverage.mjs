@@ -57,7 +57,8 @@ function collectClassNames() {
 
 /** アプリ独自のクラス（Tailwind のユーティリティではない） */
 const NON_UTILITY = new Set([
-  'schedule-input-row', 'schedule-time-input', 'schedule-title-input', 'group',
+  'schedule-input-row', 'schedule-time-input', 'schedule-title-input',
+  'schedule-edit-time', 'schedule-edit-title', 'group',
 ]);
 
 /** Tailwind はセレクタ内の記号を \ でエスケープして出力する */

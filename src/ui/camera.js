@@ -1,6 +1,5 @@
 import { $ } from './dom.js';
 import { setIcon } from './icons.js';
-import { state } from '../state.js';
 
 /**
  * 保存する画像の上限。
@@ -35,7 +34,6 @@ export function hideCameraError() {
 
 export async function startCamera() {
   hideCameraError();
-  hideCaptureForm();
 
   if (!navigator.mediaDevices?.getUserMedia) {
     showCameraError('この環境ではカメラを利用できません。https:// または localhost で開いているかご確認ください。');
@@ -118,42 +116,9 @@ function captureResizedImage(video) {
   return { dataUrl: canvas.toDataURL(format.contentType, IMAGE_QUALITY), ...format };
 }
 
-export function showCaptureForm(image) {
-  $('capture-preview').src = image.dataUrl;
-  $('capture-name').value = '';
-  $('capture-category').value = state.activeTab;
-  $('capture-warmth').value = '3';
-  $('capture-formality').value = '1';
-  $('capture-rainsafe').checked = true;
-
-  const form = $('capture-form');
-  form.classList.remove('hidden');
-  form.classList.add('flex');
-  form.removeAttribute('inert');
-  $('capture-name').focus();
-}
-
-export function hideCaptureForm() {
-  const form = $('capture-form');
-  form.classList.add('hidden');
-  form.classList.remove('flex');
-  form.setAttribute('inert', '');
-}
-
+/** 撮影する。成功したら縮小済みの画像を返す */
 export function takePhoto() {
-  if (!currentStream) return false;
+  if (!currentStream) return null;
   flashCamera();
-  state.pendingPhoto = captureResizedImage($('camera-video'));
-  showCaptureForm(state.pendingPhoto);
-  return true;
-}
-
-export function readCaptureForm() {
-  return {
-    name: $('capture-name').value.trim(),
-    category: $('capture-category').value,
-    warmth: parseInt($('capture-warmth').value, 10),
-    formality: parseInt($('capture-formality').value, 10),
-    rainSafe: $('capture-rainsafe').checked,
-  };
+  return captureResizedImage($('camera-video'));
 }

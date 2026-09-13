@@ -7,9 +7,17 @@
  * "ガチャ" として成立させるのが狙い。
  */
 
-export const CATEGORIES = ['tops', 'bottoms', 'shoes'];
+/** 表示順。上に着るものから並べる */
+export const CATEGORIES = ['outer', 'tops', 'bottoms', 'shoes'];
+
+/**
+ * 必ず1点は選ぶカテゴリ。
+ * アウターは気温次第で出さないので、ここには含めない。
+ */
+export const REQUIRED_CATEGORIES = ['tops', 'bottoms', 'shoes'];
 
 export const CATEGORY_LABELS = {
+  outer: 'アウター',
   tops: 'トップス',
   bottoms: 'ボトムス',
   shoes: 'シューズ',
@@ -38,6 +46,19 @@ export function targetFormalityFor(schedules) {
   return level;
 }
 
+/**
+ * 気温からアウターの要否を決める。
+ *   no       … 不要
+ *   optional … 朝晩は冷えるので、あると安心
+ *   yes      … 無いと寒い
+ */
+export function outerNeedFor(temp) {
+  if (temp === null) return 'no';
+  if (temp >= 22) return 'no';
+  if (temp >= 16) return 'optional';
+  return 'yes';
+}
+
 export function buildContext({ weather, schedules }) {
   const temp = weather ? weather.temp : null;
   const pop = weather ? weather.pop : null;
@@ -47,6 +68,7 @@ export function buildContext({ weather, schedules }) {
     targetWarmth: temp === null ? null : targetWarmthFor(temp),
     targetFormality: targetFormalityFor(schedules),
     rainy: pop !== null && pop >= 50,
+    outerNeed: outerNeedFor(temp),
   };
 }
 
@@ -72,7 +94,7 @@ export function weightedPick(items, context, random = Math.random) {
   return items[items.length - 1];
 }
 
-export function buildMessage(context, missing) {
+export function buildMessage(context, missing, { outerPicked = false, outerUnavailable = false } = {}) {
   if (missing.length > 0) {
     return `クローゼットに${missing.join('・')}が登録されていません。右上の「＋」から追加すると、完全なコーデを提案できます。`;
   }
@@ -91,6 +113,15 @@ export function buildMessage(context, missing) {
 
   if (context.rainy) {
     parts.push(`降水確率が${context.pop}%なので、雨に強いものを優先しています`);
+  }
+
+  if (outerPicked) {
+    parts.push(context.outerNeed === 'yes'
+      ? '冷えるのでアウターも合わせています'
+      : '朝晩の冷え込みに備えて羽織りものを足しました');
+  } else if (outerUnavailable && context.outerNeed === 'yes') {
+    // 責めるのではなく、登録を促す
+    parts.push('この気温だとアウターが欲しいところですが、まだ登録がありません');
   }
 
   if (context.targetFormality === 3) {
@@ -113,16 +144,40 @@ export function drawOutfit({ items, weather, schedules, random = Math.random }) 
     CATEGORIES.map((category) => [category, items.filter((item) => item.category === category)])
   );
 
-  const missing = CATEGORIES.filter((category) => byCategory[category].length === 0).map(
-    (category) => CATEGORY_LABELS[category]
+  // 「足りない」と言うのは必須カテゴリだけ。
+  // アウターは気温次第で不要なので、無くても欠品扱いにしない。
+  const missing = REQUIRED_CATEGORIES
+    .filter((category) => byCategory[category].length === 0)
+    .map((category) => CATEGORY_LABELS[category]);
+
+  const hasOuter = byCategory.outer.length > 0;
+  const includeOuter = hasOuter && (
+    context.outerNeed === 'yes' ||
+    // 迷う気温は引くたびに変わってよい（ガチャとしての揺らぎ）
+    (context.outerNeed === 'optional' && random() < 0.5)
   );
 
-  const picks = Object.fromEntries(
-    CATEGORIES.map((category) => [
-      category,
-      byCategory[category].length ? weightedPick(byCategory[category], context, random) : null,
-    ])
-  );
+  const outer = includeOuter ? weightedPick(byCategory.outer, context, random) : null;
 
-  return { ...picks, message: buildMessage(context, missing), missing, context };
+  // アウターを着るぶん、中は一段薄くてよい
+  const innerContext = outer && context.targetWarmth !== null
+    ? { ...context, targetWarmth: Math.max(1, context.targetWarmth - 1) }
+    : context;
+
+  const picks = {
+    outer,
+    tops: byCategory.tops.length ? weightedPick(byCategory.tops, innerContext, random) : null,
+    bottoms: byCategory.bottoms.length ? weightedPick(byCategory.bottoms, context, random) : null,
+    shoes: byCategory.shoes.length ? weightedPick(byCategory.shoes, context, random) : null,
+  };
+
+  return {
+    ...picks,
+    message: buildMessage(context, missing, {
+      outerPicked: Boolean(outer),
+      outerUnavailable: !hasOuter,
+    }),
+    missing,
+    context,
+  };
 }

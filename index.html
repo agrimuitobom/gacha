@@ -155,12 +155,14 @@
       </div>
 
       <div class="flex border-b border-gray-200 px-4" role="tablist" aria-label="アイテムの種類">
-        <button type="button" role="tab" id="tab-tops" aria-selected="true" aria-controls="content-tops" data-action="switch-tab" data-tab="tops" class="flex-1 py-3 text-sm font-bold border-b-2 border-gray-900 text-gray-900 transition-colors">Tops</button>
-        <button type="button" role="tab" id="tab-bottoms" aria-selected="false" aria-controls="content-bottoms" data-action="switch-tab" data-tab="bottoms" tabindex="-1" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">Bottoms</button>
-        <button type="button" role="tab" id="tab-shoes" aria-selected="false" aria-controls="content-shoes" data-action="switch-tab" data-tab="shoes" tabindex="-1" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">Shoes</button>
+        <button type="button" role="tab" id="tab-outer" aria-selected="false" aria-controls="content-outer" data-action="switch-tab" data-tab="outer" tabindex="-1" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">アウター</button>
+        <button type="button" role="tab" id="tab-tops" aria-selected="true" aria-controls="content-tops" data-action="switch-tab" data-tab="tops" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-gray-900 text-gray-900 transition-colors">トップス</button>
+        <button type="button" role="tab" id="tab-bottoms" aria-selected="false" aria-controls="content-bottoms" data-action="switch-tab" data-tab="bottoms" tabindex="-1" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">ボトムス</button>
+        <button type="button" role="tab" id="tab-shoes" aria-selected="false" aria-controls="content-shoes" data-action="switch-tab" data-tab="shoes" tabindex="-1" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">シューズ</button>
       </div>
 
       <div class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50">
+        <ul id="content-outer" role="tabpanel" aria-labelledby="tab-outer" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
         <ul id="content-tops" role="tabpanel" aria-labelledby="tab-tops" class="grid grid-cols-2 gap-4 list-none"></ul>
         <ul id="content-bottoms" role="tabpanel" aria-labelledby="tab-bottoms" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
         <ul id="content-shoes" role="tabpanel" aria-labelledby="tab-shoes" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
@@ -216,69 +218,74 @@
         </button>
       </div>
 
-      <!-- 撮影後の登録フォーム（ガチャの判定に使う属性をここで入力する） -->
-      <div id="capture-form" class="absolute inset-0 z-30 hidden flex-col bg-white animate-fade-in" inert>
-        <div class="p-4 flex items-center border-b border-gray-200">
-          <button type="button" data-action="cancel-capture" aria-label="撮り直す" class="w-11 h-11 -ml-2 flex items-center justify-center text-gray-600 active:bg-gray-100 rounded-full transition-colors" data-icon="chevron-left" data-icon-class="w-6 h-6"></button>
-          <h2 class="text-lg font-bold mx-auto pr-8">アイテムを登録</h2>
+    </section>
+
+    <!-- =========================================
+         アイテムの登録・編集画面 (Item form)
+         新規登録（撮影後）と、既存アイテムの編集で共用する
+         ========================================= -->
+    <section id="item-form-screen" aria-labelledby="item-form-title" class="absolute inset-0 bg-white z-[60] flex flex-col animate-fade-in hidden">
+      <div class="p-4 flex items-center border-b border-gray-200">
+        <button type="button" data-action="cancel-item-form" aria-label="戻る" class="w-11 h-11 -ml-2 flex items-center justify-center text-gray-600 active:bg-gray-100 rounded-full transition-colors" data-icon="chevron-left" data-icon-class="w-6 h-6"></button>
+        <h2 id="item-form-title" data-screen-title tabindex="-1" class="text-lg font-bold mx-auto pr-8">アイテムを登録</h2>
+      </div>
+
+      <div class="flex-1 overflow-y-auto no-scrollbar p-5 flex flex-col gap-4">
+        <div id="capture-preview-wrap" class="w-32 h-32 mx-auto rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+          <img id="capture-preview" alt="この服の写真" class="w-full h-full object-cover">
         </div>
 
-        <div class="flex-1 overflow-y-auto no-scrollbar p-5 flex flex-col gap-4">
-          <div class="w-32 h-32 mx-auto rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
-            <img id="capture-preview" alt="撮影した服のプレビュー" class="w-full h-full object-cover">
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label for="capture-name" class="text-xs font-bold text-gray-800">アイテム名</label>
-            <input id="capture-name" type="text" maxlength="40" placeholder="例: 白のオーバーサイズT" autocomplete="off"
-              class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label for="capture-category" class="text-xs font-bold text-gray-800">カテゴリ</label>
-            <select id="capture-category" class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
-              <option value="tops">トップス</option>
-              <option value="bottoms">ボトムス</option>
-              <option value="shoes">シューズ</option>
-            </select>
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label for="capture-warmth" class="text-xs font-bold text-gray-800">生地の厚み</label>
-            <select id="capture-warmth" aria-describedby="capture-warmth-help" class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
-              <option value="1">1 - とても薄手（真夏）</option>
-              <option value="2">2 - 薄手</option>
-              <option value="3" selected>3 - 普通</option>
-              <option value="4">4 - 厚手</option>
-              <option value="5">5 - とても厚手（真冬）</option>
-            </select>
-            <p id="capture-warmth-help" class="text-xs text-gray-600">気温に合うコーデを選ぶために使います</p>
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label for="capture-formality" class="text-xs font-bold text-gray-800">きれいめ度</label>
-            <select id="capture-formality" aria-describedby="capture-formality-help" class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
-              <option value="1" selected>1 - カジュアル</option>
-              <option value="2">2 - きれいめ</option>
-              <option value="3">3 - フォーマル</option>
-            </select>
-            <p id="capture-formality-help" class="text-xs text-gray-600">予定に合うコーデを選ぶために使います</p>
-          </div>
-
-          <div class="flex items-center gap-2.5 py-1">
-            <input id="capture-rainsafe" type="checkbox" checked class="w-5 h-5 accent-rose-600">
-            <label for="capture-rainsafe" class="text-xs font-bold text-gray-800">雨の日でも着られる</label>
-          </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="capture-name" class="text-xs font-bold text-gray-800">アイテム名</label>
+          <input id="capture-name" type="text" maxlength="40" placeholder="例: 白のオーバーサイズT" autocomplete="off"
+            class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
         </div>
 
-        <div class="p-4 border-t border-gray-200 flex gap-3 pb-6">
-          <button type="button" data-action="cancel-capture" class="flex-1 py-3.5 bg-gray-100 text-gray-800 font-bold rounded-2xl active:bg-gray-200 transition-colors">
-            撮り直す
-          </button>
-          <button type="button" id="capture-save-btn" data-action="save-capture" class="flex-1 py-3.5 bg-gray-900 text-white font-bold rounded-2xl active:bg-gray-800 transition-colors shadow-lg disabled:opacity-60">
-            保存する
-          </button>
+        <div class="flex flex-col gap-1.5">
+          <label for="capture-category" class="text-xs font-bold text-gray-800">カテゴリ</label>
+          <select id="capture-category" class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
+            <option value="outer">アウター</option>
+            <option value="tops">トップス</option>
+            <option value="bottoms">ボトムス</option>
+            <option value="shoes">シューズ</option>
+          </select>
         </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="capture-warmth" class="text-xs font-bold text-gray-800">生地の厚み</label>
+          <select id="capture-warmth" aria-describedby="capture-warmth-help" class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
+            <option value="1">1 - とても薄手（真夏）</option>
+            <option value="2">2 - 薄手</option>
+            <option value="3" selected>3 - 普通</option>
+            <option value="4">4 - 厚手</option>
+            <option value="5">5 - とても厚手（真冬）</option>
+          </select>
+          <p id="capture-warmth-help" class="text-xs text-gray-600">気温に合うコーデを選ぶために使います</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="capture-formality" class="text-xs font-bold text-gray-800">きれいめ度</label>
+          <select id="capture-formality" aria-describedby="capture-formality-help" class="border border-gray-300 rounded-xl px-3 py-2.5 text-base text-gray-900 bg-gray-50">
+            <option value="1" selected>1 - カジュアル</option>
+            <option value="2">2 - きれいめ</option>
+            <option value="3">3 - フォーマル</option>
+          </select>
+          <p id="capture-formality-help" class="text-xs text-gray-600">予定に合うコーデを選ぶために使います</p>
+        </div>
+
+        <div class="flex items-center gap-2.5 py-1">
+          <input id="capture-rainsafe" type="checkbox" checked class="w-5 h-5 accent-rose-600">
+          <label for="capture-rainsafe" class="text-xs font-bold text-gray-800">雨の日でも着られる</label>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-gray-200 flex gap-3 pb-6">
+        <button type="button" data-action="cancel-item-form" id="item-form-cancel" class="flex-1 py-3.5 bg-gray-100 text-gray-800 font-bold rounded-2xl active:bg-gray-200 transition-colors">
+          撮り直す
+        </button>
+        <button type="button" id="capture-save-btn" data-action="save-item-form" class="flex-1 py-3.5 bg-gray-900 text-white font-bold rounded-2xl active:bg-gray-800 transition-colors shadow-lg disabled:opacity-60">
+          保存する
+        </button>
       </div>
     </section>
 

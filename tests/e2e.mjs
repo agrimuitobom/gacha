@@ -6,7 +6,13 @@
  * Firebase エミュレータ向けにビルドした dist を対象にすると、
  * Firestore / Cloud Storage を含む実際の保存経路を通しで検証できる。
  */
+import { readFileSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
+
+/** 初期投入されるアイテム数。シードを増減しても追従するよう実装から数える */
+const SEED_COUNT = (readFileSync('src/data/repositories.js', 'utf8')
+  .match(/const SEED_ITEMS = \[([\s\S]*?)\n\];/)?.[1] || '')
+  .split('\n').filter((line) => line.trim().startsWith('{ category:')).length;
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4173/';
 
@@ -395,7 +401,8 @@ if (process.env.CHECK_FIREBASE === 'true') {
     };
 
     const items = await read('closetItems');
-    ok('初期データが Firestore に書き込まれている', items.length === 8, `${items.length}件`);
+    ok('初期データが Firestore に書き込まれている',
+      items.length === SEED_COUNT, `${items.length}件 / 期待 ${SEED_COUNT}件`);
 
     // 予定を追加して Firestore に届くか
     await page.click('[data-action="open-calendar"]');

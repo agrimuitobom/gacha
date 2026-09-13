@@ -79,21 +79,83 @@ export async function renderSchedules() {
 
   for (const item of schedules) {
     list.appendChild(
-      h('li', { class: 'flex items-center justify-between bg-rose-50/60 p-2 rounded-xl border border-rose-100 text-xs gap-2' },
-        h('div', { class: 'flex items-center gap-2 min-w-0' },
-          h('span', { class: 'font-bold text-rose-700 shrink-0', text: item.time }),
-          // textContent で入れるので、タイトルに HTML を書かれても実行されない
-          h('span', { class: 'text-gray-800 font-medium truncate', text: item.title })
-        ),
-        h('button', {
-          type: 'button',
-          class: 'w-11 h-11 shrink-0 flex items-center justify-center text-gray-600 hover:text-rose-600 rounded-lg transition-colors',
-          'aria-label': `${item.title} を削除`,
-          dataset: { action: 'delete-schedule', id: item.id },
-        }, icon('trash-2', 'w-4 h-4'))
-      )
+      item.id === editingScheduleId ? scheduleEditRow(item) : scheduleRow(item)
     );
   }
+}
+
+/** 編集中の予定。null なら通常表示 */
+let editingScheduleId = null;
+
+export function setEditingSchedule(id) {
+  editingScheduleId = id;
+}
+
+function scheduleRow(item) {
+  return h('li', { class: 'flex items-center justify-between bg-rose-50/60 p-2 rounded-xl border border-rose-100 text-xs gap-1' },
+    h('div', { class: 'flex items-center gap-2 min-w-0' },
+      h('span', { class: 'font-bold text-rose-700 shrink-0', text: item.time }),
+      // textContent で入れるので、タイトルに HTML を書かれても実行されない
+      h('span', { class: 'text-gray-800 font-medium truncate', text: item.title })
+    ),
+    h('div', { class: 'flex shrink-0' },
+      h('button', {
+        type: 'button',
+        class: 'w-11 h-11 flex items-center justify-center text-gray-600 hover:text-blue-700 rounded-lg transition-colors',
+        'aria-label': `${item.title} を編集`,
+        dataset: { action: 'edit-schedule', id: item.id },
+      }, icon('pencil', 'w-4 h-4')),
+      h('button', {
+        type: 'button',
+        class: 'w-11 h-11 flex items-center justify-center text-gray-600 hover:text-rose-600 rounded-lg transition-colors',
+        'aria-label': `${item.title} を削除`,
+        dataset: { action: 'delete-schedule', id: item.id },
+      }, icon('trash-2', 'w-4 h-4'))
+    )
+  );
+}
+
+/** その場で書き換えられるようにする。別画面へ飛ばすほどの内容ではない */
+function scheduleEditRow(item) {
+  const timeId = `edit-time-${item.id}`;
+  const titleId = `edit-title-${item.id}`;
+
+  return h('li', { class: 'flex flex-col gap-2 bg-white p-2.5 rounded-xl border border-blue-200 shadow-sm' },
+    h('div', { class: 'flex gap-2 items-center' },
+      h('label', { class: 'sr-only', for: timeId, text: '開始時刻' }),
+      h('input', {
+        id: timeId, type: 'time', value: item.time === '終日' ? '' : item.time,
+        class: 'schedule-edit-time border border-gray-300 rounded-xl px-2 py-2 text-base text-gray-900 bg-gray-50 font-medium shrink-0',
+      }),
+      h('label', { class: 'sr-only', for: titleId, text: '予定の内容' }),
+      h('input', {
+        id: titleId, type: 'text', maxlength: '60', value: item.title,
+        class: 'schedule-edit-title flex-1 min-w-0 border border-gray-300 rounded-xl px-3 py-2 text-base text-gray-900 bg-gray-50',
+      })
+    ),
+    h('div', { class: 'flex gap-2' },
+      h('button', {
+        type: 'button',
+        class: 'flex-1 min-h-[44px] bg-gray-100 text-gray-800 font-bold text-xs rounded-xl active:bg-gray-200 transition-colors',
+        dataset: { action: 'cancel-edit-schedule' },
+        text: 'やめる',
+      }),
+      h('button', {
+        type: 'button',
+        class: 'flex-1 min-h-[44px] bg-gray-900 text-white font-bold text-xs rounded-xl active:bg-gray-700 transition-colors',
+        dataset: { action: 'save-edit-schedule', id: item.id },
+        text: '保存',
+      })
+    )
+  );
+}
+
+/** 編集中の行から値を読む */
+export function readScheduleEditRow() {
+  const time = document.querySelector('.schedule-edit-time');
+  const title = document.querySelector('.schedule-edit-title');
+  if (!title) return null;
+  return { time: time?.value.trim() || '終日', title: title.value.trim() };
 }
 
 export function addScheduleInputRow({ focus = false } = {}) {

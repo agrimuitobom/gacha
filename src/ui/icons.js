@@ -2,7 +2,7 @@ import {
   createElement,
   AlertCircle, Calendar, Camera, CameraOff, Check, CheckCircle2, ChevronLeft, ChevronRight,
   Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, CloudSun, Clock, ExternalLink,
-  LogIn, LogOut, MapPin, MinusCircle, Plus, PlusCircle, RefreshCcw, Settings, ShieldCheck,
+  LogIn, LogOut, MapPin, MinusCircle, Pencil, Plus, PlusCircle, RefreshCcw, Settings, ShieldCheck,
   ShoppingBag, Smartphone, Snowflake, Sparkles, Sun, Trash2, TriangleAlert, WifiOff, Wand2, X,
 } from 'lucide';
 
@@ -35,6 +35,7 @@ const REGISTRY = {
   smartphone: Smartphone,
   'triangle-alert': TriangleAlert,
   'map-pin': MapPin,
+  pencil: Pencil,
   'minus-circle': MinusCircle,
   plus: Plus,
   'plus-circle': PlusCircle,

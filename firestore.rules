@@ -31,7 +31,7 @@ service cloud.firestore {
                'category', 'name', 'imageUrl', 'imagePath', 'colorClass',
                'warmth', 'formality', 'rainSafe', 'createdAt'
              ])
-             && data.category in ['tops', 'bottoms', 'shoes']
+             && data.category in ['outer', 'tops', 'bottoms', 'shoes']
              && isText(data.name, 40)
              && isInt(data.warmth, 1, 5)
              && isInt(data.formality, 1, 3)

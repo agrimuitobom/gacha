@@ -38,6 +38,25 @@ export const closetRepo = {
     return backend.put(CLOSET_ITEMS, item);
   },
 
+  /**
+   * 属性だけを書き換える。写真は触らない。
+   * put はドキュメントを丸ごと置き換えるので、読んでから混ぜて書く。
+   */
+  async update(id, patch) {
+    const backend = await getBackend();
+    const existing = await backend.get(CLOSET_ITEMS, id);
+    if (!existing) throw new Error(`アイテムが見つかりません: ${id}`);
+
+    return backend.put(CLOSET_ITEMS, {
+      ...existing,
+      category: patch.category ?? existing.category,
+      name: patch.name ?? existing.name,
+      warmth: patch.warmth ?? existing.warmth,
+      formality: patch.formality ?? existing.formality,
+      rainSafe: patch.rainSafe !== undefined ? patch.rainSafe : existing.rainSafe,
+    });
+  },
+
   async remove(id) {
     const backend = await getBackend();
     const target = await backend.get(CLOSET_ITEMS, id);
@@ -82,6 +101,18 @@ export const scheduleRepo = {
     });
   },
 
+  async update(id, patch) {
+    const backend = await getBackend();
+    const existing = await backend.get(SCHEDULES, id);
+    if (!existing) throw new Error(`予定が見つかりません: ${id}`);
+
+    return backend.put(SCHEDULES, {
+      ...existing,
+      time: patch.time || existing.time,
+      title: patch.title ?? existing.title,
+    });
+  },
+
   async remove(id) {
     const backend = await getBackend();
     return backend.remove(SCHEDULES, id);
@@ -122,6 +153,8 @@ export const outfitRepo = {
 
 /** 初回起動時のサンプルデータ */
 const SEED_ITEMS = [
+  { category: 'outer', name: 'ネイビーのステンカラーコート', colorClass: 'bg-slate-700', warmth: 4, formality: 3, rainSafe: true },
+  { category: 'outer', name: 'デニムジャケット', colorClass: 'bg-blue-700', warmth: 3, formality: 1, rainSafe: true },
   { category: 'tops', name: '白のオーバーサイズT', colorClass: 'bg-slate-100', warmth: 1, formality: 1, rainSafe: true },
   { category: 'tops', name: 'ストライプシャツ', colorClass: 'bg-blue-100', warmth: 2, formality: 2, rainSafe: true },
   { category: 'tops', name: '黒ニット', colorClass: 'bg-stone-800', warmth: 4, formality: 2, rainSafe: true },

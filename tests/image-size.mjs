@@ -84,7 +84,7 @@ if (!cameraFailed) {
 
   // 保存してクローゼットに反映されるか
   await page.fill('#capture-name', '容量テスト用アイテム');
-  await page.click('[data-action="save-capture"]');
+  await page.click('[data-action="save-item-form"]');
   await page.waitForTimeout(2500);
 
   const saved = await page.evaluate(() => {

@@ -19,17 +19,20 @@ import { renderSettings, linkAccount, signOutAccount } from './ui/settings.js';
 import {
   renderCalendar, renderSchedules, addScheduleInputRow, resetScheduleInputRows,
   removeScheduleInputRow, readScheduleInputRows, moveCalendarMonth, resetCalendarToToday,
+  setEditingSchedule, readScheduleEditRow,
 } from './ui/calendar.js';
+import { startCamera, stopCamera, takePhoto } from './ui/camera.js';
 import {
-  startCamera, stopCamera, takePhoto, hideCaptureForm, readCaptureForm, isCameraActive,
-} from './ui/camera.js';
+  openForCreate, openForEdit, readForm, focusName,
+  getMode, getEditingId, getPendingImage, clearPendingImage,
+} from './ui/item-form.js';
 import {
   initPwa, promptInstall, dismissInstall, showIosInstallHelp, reloadForUpdate,
 } from './ui/pwa.js';
 
 const SCREENS = [
-  'home-screen', 'result-screen', 'closet-screen',
-  'shop-screen', 'camera-screen', 'calendar-screen', 'settings-screen',
+  'home-screen', 'result-screen', 'closet-screen', 'shop-screen',
+  'camera-screen', 'item-form-screen', 'calendar-screen', 'settings-screen',
 ];
 
 /* ---------------- ガチャ ---------------- */
@@ -124,39 +127,71 @@ async function decideOutfit() {
 
 function closeCamera() {
   stopCamera();
-  hideCaptureForm();
-  state.pendingPhoto = null;
   navigateBack();
 }
 
-async function saveCapturedItem() {
-  if (!state.pendingPhoto) return;
-  const input = readCaptureForm();
+/** 撮影 → 登録フォームへ */
+function capturePhoto(origin) {
+  const image = takePhoto();
+  if (!image) return;
+  stopCamera();
+  openForCreate(image, { defaultCategory: state.activeTab });
+  navigateTo('item-form-screen', { origin });
+  focusName();
+}
 
+/** フォームを閉じる。新規登録の途中なら撮影し直しに戻る */
+function cancelItemForm() {
+  clearPendingImage();
+  navigateBack();
+  if (currentScreen() === 'camera-screen') startCamera();
+}
+
+async function saveItemForm() {
+  const input = readForm();
   if (!input.name) {
     showToast('アイテム名を入力してください', { iconName: 'alert-circle', iconColor: 'text-amber-400' });
-    $('capture-name').focus();
+    focusName();
     return;
   }
 
-  const saveButton = $('capture-save-btn');
-  saveButton.disabled = true;
-  saveButton.textContent = '保存中...';
+  const button = $('capture-save-btn');
+  const editing = getMode() === 'edit';
+  button.disabled = true;
+  button.textContent = '保存中...';
 
   try {
-    await closetRepo.add({ ...input, image: state.pendingPhoto });
-    state.pendingPhoto = null;
+    if (editing) {
+      await closetRepo.update(getEditingId(), input);
+    } else {
+      await closetRepo.add({ ...input, image: getPendingImage() });
+      clearPendingImage();
+    }
+
     switchTab(input.category);
     await renderCloset();
-    closeCamera();
-    showToast(`「${input.name}」を追加しました`);
+    navigateBack();
+    // 新規登録はカメラ画面を経由しているので、そこも閉じる
+    if (currentScreen() === 'camera-screen') {
+      stopCamera();
+      navigateBack();
+    }
+    showToast(editing ? `「${input.name}」を更新しました` : `「${input.name}」を追加しました`);
   } catch (err) {
     console.error('アイテムの保存に失敗しました:', err);
     showToast('保存できませんでした', { iconName: 'alert-circle', iconColor: 'text-amber-400' });
   } finally {
-    saveButton.disabled = false;
-    saveButton.textContent = '保存する';
+    button.disabled = false;
+    button.textContent = '保存する';
   }
+}
+
+async function editClosetItem(id, origin) {
+  const items = await closetRepo.list();
+  const item = items.find((entry) => entry.id === id);
+  if (!item) return;
+  openForEdit(item);
+  navigateTo('item-form-screen', { origin });
 }
 
 async function deleteClosetItem(id) {
@@ -215,12 +250,10 @@ const actions = {
     await startCamera();
   },
   'close-camera': () => closeCamera(),
-  'take-photo': () => takePhoto(),
-  'cancel-capture': () => {
-    state.pendingPhoto = null;
-    hideCaptureForm();
-  },
-  'save-capture': () => saveCapturedItem(),
+  'take-photo': (el) => capturePhoto(el),
+  'cancel-item-form': () => cancelItemForm(),
+  'save-item-form': () => saveItemForm(),
+  'edit-item': (el) => editClosetItem(el.dataset.id, el),
   back: () => navigateBack(),
   'switch-tab': (el) => switchTab(el.dataset.tab),
   'delete-item': (el) => deleteClosetItem(el.dataset.id),
@@ -236,8 +269,28 @@ const actions = {
   'add-input-row': () => addScheduleInputRow({ focus: true }),
   'remove-input-row': (el) => removeScheduleInputRow(el.dataset.rowId),
   'add-schedules': () => addSchedules(),
+  'edit-schedule': async (el) => {
+    setEditingSchedule(el.dataset.id);
+    await renderSchedules();
+  },
+  'cancel-edit-schedule': async () => {
+    setEditingSchedule(null);
+    await renderSchedules();
+  },
+  'save-edit-schedule': async (el) => {
+    const values = readScheduleEditRow();
+    if (!values?.title) {
+      showToast('予定の内容を入力してください', { iconName: 'alert-circle', iconColor: 'text-amber-400' });
+      return;
+    }
+    await scheduleRepo.update(el.dataset.id, values);
+    setEditingSchedule(null);
+    await Promise.all([renderCalendar(), renderSchedules(), refreshHomeWidget()]);
+    showToast('予定を更新しました');
+  },
   'delete-schedule': async (el) => {
     await scheduleRepo.remove(el.dataset.id);
+    setEditingSchedule(null);
     await Promise.all([renderCalendar(), renderSchedules(), refreshHomeWidget()]);
   },
   'open-settings': async (el) => {
@@ -277,6 +330,7 @@ function registerEventHandlers() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       if (currentScreen() === 'camera-screen') closeCamera();
+      else if (currentScreen() === 'item-form-screen') cancelItemForm();
       else navigateBack();
       return;
     }
