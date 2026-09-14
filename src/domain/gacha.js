@@ -59,7 +59,35 @@ export function outerNeedFor(temp) {
   return 'yes';
 }
 
-export function buildContext({ weather, schedules }) {
+/**
+ * 直近に着たものは控えめにする日数。
+ * 短すぎると毎日同じ組み合わせになり、長すぎると
+ * 手持ちが少ない人がまともな提案を受けられなくなる。
+ */
+export const RECENT_WINDOW_DAYS = 4;
+
+/**
+ * 直近のコーデ記録から「何日前に着たか」を引ける Map を作る。
+ * @param {{date: string, outerId, topsId, bottomsId, shoesId}[]} outfits
+ * @param {string} todayKey
+ */
+export function buildRecentlyWorn(outfits, todayKey) {
+  const worn = new Map();
+  const today = Date.parse(`${todayKey}T00:00:00`);
+
+  for (const outfit of outfits) {
+    const daysAgo = Math.round((today - Date.parse(`${outfit.date}T00:00:00`)) / 86400000);
+    if (daysAgo < 0 || daysAgo >= RECENT_WINDOW_DAYS) continue;
+    for (const id of [outfit.outerId, outfit.topsId, outfit.bottomsId, outfit.shoesId]) {
+      if (!id) continue;
+      // 同じ服を複数回着ていたら、直近の方を採用する
+      if (!worn.has(id) || worn.get(id) > daysAgo) worn.set(id, daysAgo);
+    }
+  }
+  return worn;
+}
+
+export function buildContext({ weather, schedules, recentlyWorn = new Map() }) {
   const temp = weather ? weather.temp : null;
   const pop = weather ? weather.pop : null;
   return {
@@ -69,6 +97,7 @@ export function buildContext({ weather, schedules }) {
     targetFormality: targetFormalityFor(schedules),
     rainy: pop !== null && pop >= 50,
     outerNeed: outerNeedFor(temp),
+    recentlyWorn,
   };
 }
 
@@ -79,6 +108,10 @@ export function scoreItem(item, context) {
   }
   score -= Math.abs(item.formality - context.targetFormality) * 1.5;
   if (context.rainy && item.rainSafe === false) score -= 4;
+
+  // 最近着たものは控えめに。直近ほど強く下げる
+  const daysAgo = context.recentlyWorn?.get(item.id);
+  if (daysAgo !== undefined) score -= RECENT_WINDOW_DAYS - daysAgo;
   // 0 にしないことで「たまに意外な組み合わせが出る」ガチャ性を残す
   return Math.max(0.2, score);
 }
@@ -137,8 +170,8 @@ export function buildMessage(context, missing, { outerPicked = false, outerUnava
  * コーデを1組引く。
  * @param {{ items: object[], weather: object|null, schedules: object[], random?: () => number }} input
  */
-export function drawOutfit({ items, weather, schedules, random = Math.random }) {
-  const context = buildContext({ weather, schedules });
+export function drawOutfit({ items, weather, schedules, recentlyWorn, random = Math.random }) {
+  const context = buildContext({ weather, schedules, recentlyWorn });
 
   const byCategory = Object.fromEntries(
     CATEGORIES.map((category) => [category, items.filter((item) => item.category === category)])

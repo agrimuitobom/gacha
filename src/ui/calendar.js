@@ -1,8 +1,9 @@
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { state } from '../state.js';
-import { scheduleRepo } from '../data/repositories.js';
+import { scheduleRepo, outfitRepo, closetRepo } from '../data/repositories.js';
 import { fromDateKey, formatDateKeyJa, WEEKDAYS } from '../domain/dates.js';
+import { CATEGORIES, CATEGORY_LABELS } from '../domain/gacha.js';
 import { newId } from '../data/ids.js';
 
 export async function renderCalendar() {
@@ -15,10 +16,12 @@ export async function renderCalendar() {
 
   // 表示している月のぶんだけ問い合わせる
   const monthPrefix = `${state.calYear}-${String(state.calMonth + 1).padStart(2, '0')}`;
-  const scheduledDates = await scheduleRepo.datesWithSchedule(
-    `${monthPrefix}-01`,
-    `${monthPrefix}-${String(daysInMonth).padStart(2, '0')}`
-  );
+  const from = `${monthPrefix}-01`;
+  const to = `${monthPrefix}-${String(daysInMonth).padStart(2, '0')}`;
+  const [scheduledDates, outfitDates] = await Promise.all([
+    scheduleRepo.datesWithSchedule(from, to),
+    outfitRepo.datesWithOutfit(from, to),
+  ]);
 
   for (let i = 0; i < firstWeekday; i += 1) {
     grid.appendChild(h('div', { class: 'h-11', 'aria-hidden': 'true' }));
@@ -30,13 +33,14 @@ export async function renderCalendar() {
     const isSelected = dateKey === state.selectedDateKey;
     const isToday = dateKey === state.todayKey;
     const hasSchedule = scheduledDates.has(dateKey);
+    const hasOutfit = outfitDates.has(dateKey);
 
     let className = 'h-11 rounded-xl flex flex-col items-center justify-center relative transition-all active:scale-90 ';
     if (isSelected) className += 'bg-rose-600 text-white font-bold shadow-md';
     else if (isToday) className += 'bg-rose-50 text-rose-700 font-bold ring-1 ring-rose-300';
     else className += 'hover:bg-gray-100 text-gray-800 font-medium';
 
-    const scheduleNote = hasSchedule ? '・予定あり' : '';
+    const scheduleNote = (hasSchedule ? '・予定あり' : '') + (hasOutfit ? '・コーデ記録あり' : '');
     const button = h('button', {
       type: 'button',
       class: className,
@@ -46,13 +50,19 @@ export async function renderCalendar() {
       dataset: { action: 'select-date', date: dateKey },
     }, h('span', { class: 'pointer-events-none', text: String(day) }));
 
-    if (hasSchedule) {
-      button.appendChild(
-        h('span', {
-          'aria-hidden': 'true',
-          class: `w-1.5 h-1.5 rounded-full absolute bottom-1 pointer-events-none ${isSelected ? 'bg-white' : 'bg-rose-600'}`,
-        })
-      );
+    if (hasSchedule || hasOutfit) {
+      const marks = h('span', { 'aria-hidden': 'true', class: 'absolute bottom-1 flex gap-0.5 pointer-events-none' });
+      if (hasSchedule) {
+        marks.appendChild(h('span', {
+          class: `w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-rose-600'}`,
+        }));
+      }
+      if (hasOutfit) {
+        marks.appendChild(h('span', {
+          class: `w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/70' : 'bg-indigo-600'}`,
+        }));
+      }
+      button.appendChild(marks);
     }
     grid.appendChild(button);
   }
@@ -156,6 +166,46 @@ export function readScheduleEditRow() {
   const title = document.querySelector('.schedule-edit-title');
   if (!title) return null;
   return { time: time?.value.trim() || '終日', title: title.value.trim() };
+}
+
+/**
+ * 選択中の日に着たコーデを表示する。
+ * 決めた記録は貯めているのに見返せなかったので、日付から辿れるようにする。
+ */
+export async function renderOutfitHistory() {
+  const container = $('outfit-history');
+  const outfit = await outfitRepo.findByDate(state.selectedDateKey);
+
+  if (!outfit) {
+    container.replaceChildren(
+      h('p', { class: 'text-xs text-gray-600 text-center py-3', text: 'この日はまだ決めていません' })
+    );
+    return;
+  }
+
+  const items = await closetRepo.list();
+  const byId = new Map(items.map((item) => [item.id, item]));
+
+  const rows = CATEGORIES.map((category) => {
+    const id = outfit[`${category}Id`];
+    if (!id) return null;
+    const item = byId.get(id);
+    return h('li', { class: 'flex items-center gap-2 text-xs' },
+      h('span', { class: 'w-14 shrink-0 text-gray-600', text: CATEGORY_LABELS[category] }),
+      item
+        ? h('span', { class: 'font-medium text-gray-900 truncate', text: item.name })
+        // 記録した後で削除された服。名前は残っていないので、その旨を出す
+        : h('span', { class: 'text-gray-500 italic', text: '削除されたアイテム' })
+    );
+  }).filter(Boolean);
+
+  container.replaceChildren(
+    h('ul', { class: 'flex flex-col gap-1.5 list-none' }, ...rows),
+    h('p', {
+      class: 'text-[11px] text-gray-500 mt-1',
+      text: `決定: ${new Date(outfit.decidedAt).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' })}`,
+    })
+  );
 }
 
 export function addScheduleInputRow({ focus = false } = {}) {

@@ -22,6 +22,10 @@ service cloud.firestore {
       return value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
     }
 
+    function isOptionalId(value) {
+      return value == null || value is string;
+    }
+
     function isTimestampMs(value) {
       return value is int && value > 0;
     }
@@ -54,11 +58,15 @@ service cloud.firestore {
     }
 
     function validOutfit(data) {
-      return data.keys().hasOnly(['date', 'topsId', 'bottomsId', 'shoesId', 'decidedAt', 'createdAt'])
+      return data.keys().hasOnly(['date', 'outerId', 'topsId', 'bottomsId', 'shoesId', 'decidedAt', 'createdAt'])
              && isDateKey(data.date)
-             && (data.topsId == null || data.topsId is string)
-             && (data.bottomsId == null || data.bottomsId is string)
-             && (data.shoesId == null || data.shoesId is string)
+             // フィールドが無いドキュメント（outerId を持たない古い記録など）でも
+             // 弾かれないよう、get で既定値を与えてから検証する。
+             // data.outerId と直接書くと、未設定のとき評価自体が失敗する。
+             && isOptionalId(data.get('outerId', null))
+             && isOptionalId(data.get('topsId', null))
+             && isOptionalId(data.get('bottomsId', null))
+             && isOptionalId(data.get('shoesId', null))
              && isTimestampMs(data.decidedAt)
              && isTimestampMs(data.createdAt);
     }

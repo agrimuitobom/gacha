@@ -136,12 +136,27 @@ export const outfitRepo = {
     return found || null;
   },
 
+  /** 指定期間に決めたコーデ。履歴の表示と、最近着たものの判定に使う */
+  async listByRange(fromKey, toKey) {
+    const backend = await getBackend();
+    const matched = await backend.query(OUTFITS, {
+      where: [['date', '>=', fromKey], ['date', '<=', toKey]],
+    });
+    return matched.sort((a, b) => b.date.localeCompare(a.date));
+  },
+
+  async datesWithOutfit(fromKey, toKey) {
+    const found = await this.listByRange(fromKey, toKey);
+    return new Set(found.map((item) => item.date));
+  },
+
   async save(dateKey, outfit) {
     const backend = await getBackend();
     const existing = await this.findByDate(dateKey);
     return backend.put(OUTFITS, {
       id: existing ? existing.id : newId(),
       date: dateKey,
+      outerId: outfit.outer?.id || null,
       topsId: outfit.tops?.id || null,
       bottomsId: outfit.bottoms?.id || null,
       shoesId: outfit.shoes?.id || null,

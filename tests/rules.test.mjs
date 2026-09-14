@@ -72,7 +72,7 @@ await check('本人は予定を作成できる', assertSucceeds(setDoc(
 
 await check('本人はコーデ記録を作成できる', assertSucceeds(setDoc(
   doc(alice, 'users', ALICE, 'outfits', 'o1'),
-  { date: '2026-09-12', topsId: 'item1', bottomsId: null, shoesId: null,
+  { date: '2026-09-12', outerId: 'coat1', topsId: 'item1', bottomsId: null, shoesId: null,
     decidedAt: 1757600000000, createdAt: 1757600000000 }
 )));
 
@@ -110,6 +110,22 @@ await check('他人の領域を指す imagePath は拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad7'), { ...validItem, imagePath: `users/${BOB}/closet/x.jpg` })));
 await check('rainSafe が真偽値でなければ拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad8'), { ...validItem, rainSafe: 'yes' })));
+await check('アウターを含まないコーデ記録も許容', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'o2'),
+  { date: '2026-09-13', outerId: null, topsId: 'item1', bottomsId: null, shoesId: null,
+    decidedAt: 1757600000000, createdAt: 1757600000000 }
+)));
+await check('outerId が無い古い形式のコーデ記録も通る', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'legacy'),
+  { date: '2026-09-11', topsId: 'item1', bottomsId: null, shoesId: null,
+    decidedAt: 1757600000000, createdAt: 1757600000000 }
+)));
+await check('コーデ記録に未知のフィールドは書けない', assertFails(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'o3'),
+  { date: '2026-09-13', outerId: null, topsId: null, bottomsId: null, shoesId: null,
+    decidedAt: 1757600000000, createdAt: 1757600000000, hatId: 'x' }
+)));
+
 await check('日付形式が不正な予定は拒否', assertFails(setDoc(
   doc(alice, 'users', ALICE, 'schedules', 'bad'),
   { date: '2026/9/12', time: '19:00', title: 'x', createdAt: 1757600000000 }

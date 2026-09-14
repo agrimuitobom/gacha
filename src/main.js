@@ -7,19 +7,20 @@ import { initLifecycle } from './lifecycle.js';
 import { closetRepo, scheduleRepo, outfitRepo, seedIfNeeded } from './data/repositories.js';
 import { getBackend } from './data/backend.js';
 import { isFirebaseConfigured } from './config/env.js';
-import { drawOutfit } from './domain/gacha.js';
+import { drawOutfit, buildRecentlyWorn, RECENT_WINDOW_DAYS } from './domain/gacha.js';
+import { toDateKey, fromDateKey } from './domain/dates.js';
 import { initScreens, navigateTo, navigateBack, currentScreen, onScreenEnter } from './ui/screens.js';
 import { showToast } from './ui/toast.js';
 import { loadWeather, renderWeather, refreshWeatherIfStale } from './ui/weather-widget.js';
 import { refreshHomeWidget } from './ui/home.js';
 import { renderCloset, switchTab, handleTabKeydown } from './ui/closet.js';
 import { renderResult } from './ui/result.js';
-import { renderShops } from './ui/shop.js';
+import { renderShops, locateShops } from './ui/shop.js';
 import { renderSettings, linkAccount, signOutAccount } from './ui/settings.js';
 import {
   renderCalendar, renderSchedules, addScheduleInputRow, resetScheduleInputRows,
   removeScheduleInputRow, readScheduleInputRows, moveCalendarMonth, resetCalendarToToday,
-  setEditingSchedule, readScheduleEditRow,
+  setEditingSchedule, readScheduleEditRow, renderOutfitHistory,
 } from './ui/calendar.js';
 import { startCamera, stopCamera, takePhoto } from './ui/camera.js';
 import {
@@ -58,11 +59,23 @@ function setGachaSpinning(spinning) {
 }
 
 async function buildOutfit() {
-  const [items, schedules] = await Promise.all([
+  // 直近に着たものを避けるため、この日数ぶんの記録を見る
+  const since = toDateKey(
+    new Date(fromDateKey(state.todayKey).getTime() - RECENT_WINDOW_DAYS * 86400000)
+  );
+
+  const [items, schedules, recentOutfits] = await Promise.all([
     closetRepo.list(),
     scheduleRepo.listByDate(state.todayKey),
+    outfitRepo.listByRange(since, state.todayKey),
   ]);
-  return drawOutfit({ items, weather: state.weather, schedules });
+
+  return drawOutfit({
+    items,
+    weather: state.weather,
+    schedules,
+    recentlyWorn: buildRecentlyWorn(recentOutfits, state.todayKey),
+  });
 }
 
 async function startGacha(origin) {
@@ -231,7 +244,7 @@ const actions = {
     resetCalendarToToday();
     navigateTo('calendar-screen', { origin: el });
     resetScheduleInputRows();
-    await Promise.all([renderCalendar(), renderSchedules()]);
+    await Promise.all([renderCalendar(), renderSchedules(), renderOutfitHistory()]);
   },
   'refresh-weather': () => loadWeather(true),
   'start-gacha': (el) => startGacha(el),
@@ -263,8 +276,9 @@ const actions = {
   },
   'select-date': async (el) => {
     state.selectedDateKey = el.dataset.date;
+    setEditingSchedule(null);
     resetScheduleInputRows();
-    await Promise.all([renderCalendar(), renderSchedules()]);
+    await Promise.all([renderCalendar(), renderSchedules(), renderOutfitHistory()]);
   },
   'add-input-row': () => addScheduleInputRow({ focus: true }),
   'remove-input-row': (el) => removeScheduleInputRow(el.dataset.rowId),
@@ -299,6 +313,7 @@ const actions = {
   },
   'link-account': () => linkAccount(),
   'sign-out-account': () => signOutAccount(),
+  'locate-shops': () => locateShops(),
   'install-app': () => promptInstall(),
   'show-ios-install': () => showIosInstallHelp(),
   'dismiss-install': () => dismissInstall(),
@@ -358,7 +373,7 @@ function registerEventHandlers() {
 async function handleDateChange() {
   await refreshHomeWidget();
   if (currentScreen() === 'calendar-screen') {
-    await Promise.all([renderCalendar(), renderSchedules()]);
+    await Promise.all([renderCalendar(), renderSchedules(), renderOutfitHistory()]);
   }
   showToast('日付が変わりました', { iconName: 'calendar', iconColor: 'text-rose-300' });
 }

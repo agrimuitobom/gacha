@@ -55,6 +55,7 @@ export async function loadWeather(useCurrentLocation = false) {
       const position = await getCurrentPosition();
       const { latitude, longitude } = position.coords;
       location = { lat: latitude, lon: longitude, name: await reverseGeocode(latitude, longitude) };
+      state.lastPosition = { lat: latitude, lon: longitude };
     } catch (err) {
       console.warn('位置情報が取得できないため既定地点を使用します:', err.message);
     }
