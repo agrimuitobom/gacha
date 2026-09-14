@@ -1,7 +1,7 @@
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { shopRepo, isOpenNow, formatPrice } from '../data/shops.js';
-import { distanceKm, formatDistance } from '../domain/geo.js';
+import { distanceKm, formatDistance, mapsSearchUrl } from '../domain/geo.js';
 import { state } from '../state.js';
 import { getCurrentPosition } from '../domain/weather.js';
 import { showToast } from './toast.js';
@@ -96,17 +96,52 @@ function shopCard(shop) {
   );
 }
 
+/**
+ * Google マップで周辺の服屋を探す導線。
+ *
+ * 載せている店舗は手で登録した数軒だけなので、それ以外を探す道を用意する。
+ * Places API ではなくリンクにしているのは、APIキーの露出も請求先アカウントも
+ * 避けられて、取得データを保存できないという ToS の制約にも触れないため。
+ *
+ * ボタンではなく <a> にしてある。位置情報の取得を挟んでから window.open すると、
+ * 操作との紐づきが切れてポップアップブロックに当たることがある。
+ */
+function mapsSearchCard() {
+  return h('li', { class: 'bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-3' },
+    h('span', { class: 'w-9 h-9 shrink-0 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center' },
+      icon('map-pin', 'w-5 h-5')
+    ),
+    h('div', { class: 'min-w-0 flex-1' },
+      h('p', { class: 'text-sm font-bold text-gray-900', text: 'ほかのお店を探す' }),
+      h('p', { class: 'text-xs text-gray-700 mt-0.5',
+        text: state.lastPosition ? '現在地のまわりをマップで検索します' : 'マップで周辺の服屋を検索します' })
+    ),
+    h('a', {
+      href: mapsSearchUrl(state.lastPosition),
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      class: 'shrink-0 px-3 min-h-[44px] bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700 flex items-center gap-1',
+      dataset: { action: 'search-shops-on-maps' },
+    },
+      'マップで探す',
+      h('span', { class: 'sr-only', text: '（Google マップ、新しいタブで開く）' }),
+      icon('external-link', 'w-3 h-3')
+    )
+  );
+}
+
 export async function renderShops() {
   const shops = await shopRepo.list();
   const children = shops.map(shopCard);
 
-  // 座標が入っている店舗があるのに現在地が不明なら、取得の導線を出す
-  const canShowDistance = shops.some((shop) => shop.location);
-  if (canShowDistance && !state.lastPosition) {
+  children.push(mapsSearchCard());
+
+  // 現在地が分かると、距離の表示（座標のある店舗）とマップ検索の中心が精確になる
+  if (!state.lastPosition) {
     children.unshift(
       h('li', { class: 'bg-white p-3 rounded-2xl border border-gray-200 flex items-center gap-2' },
         icon('map-pin', 'w-4 h-4 text-gray-600'),
-        h('p', { class: 'flex-1 text-xs text-gray-700', text: '現在地を使うと、お店までの距離が出せます' }),
+        h('p', { class: 'flex-1 text-xs text-gray-700', text: '現在地を使うと、近いお店から探せます' }),
         h('button', {
           type: 'button',
           class: 'shrink-0 px-3 min-h-[44px] bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700',
