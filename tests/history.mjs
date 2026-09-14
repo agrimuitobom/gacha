@@ -155,12 +155,52 @@ async function open(temp, options = {}) {
   await context.close();
 }
 
+/* ---------- マップでの周辺検索 ---------- */
 {
   const { context, page } = await open(20);
   await page.click('[data-action="open-shop"]');
   await page.waitForTimeout(1200);
-  ok('座標が無ければ現在地の導線も出さない',
+
+  // 載せている店舗は手で登録した数軒だけなので、ほかを探す導線が要る
+  const link = page.locator('[data-action="search-shops-on-maps"]');
+  ok('マップで探す導線がある', (await link.count()) === 1);
+  ok('別タブで開く', (await link.getAttribute('target')) === '_blank');
+  ok('opener を渡さない',
+    (await link.getAttribute('rel') || '').includes('noopener'));
+
+  const href = await link.getAttribute('href');
+  ok('Google マップを指している',
+    href.startsWith('https://www.google.com/maps/search/'), href);
+  ok('服屋を検索する', decodeURIComponent(href).includes('服屋'), decodeURIComponent(href));
+
+  // 現在地が分からないうちは中心を指定せず、マップ側の位置情報に任せる
+  ok('現在地が無ければ中心を指定しない', !href.includes('@'), href);
+
+  // 現在地は、距離の表示にもマップ検索の中心にも効く。
+  // 以前は座標のある店舗が1つも無いと導線を出していなかったが、
+  // マップ検索の中心として使えるようになったので、常に出す。
+  ok('現在地の導線が出る',
+    (await page.locator('[data-action="locate-shops"]').count()) === 1);
+
+  await context.close();
+}
+
+/* ---------- 現在地が分かったあと ---------- */
+{
+  const { context, page } = await open(20, {
+    geolocation: { latitude: 33.9189, longitude: 133.1818 },
+    permissions: ['geolocation'],
+  });
+  await page.click('[data-action="open-shop"]');
+  await page.waitForTimeout(1200);
+  await page.click('[data-action="locate-shops"]');
+  await page.waitForTimeout(1500);
+
+  const href = await page.locator('[data-action="search-shops-on-maps"]').getAttribute('href');
+  ok('現在地が地図の中心に入る', href.includes('@33.9189,133.1818'), href);
+  ok('現在地が分かれば導線を引っ込める',
     (await page.locator('[data-action="locate-shops"]').count()) === 0);
+
   await context.close();
 }
 
