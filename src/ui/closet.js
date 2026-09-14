@@ -1,7 +1,7 @@
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { state } from '../state.js';
-import { closetRepo } from '../data/repositories.js';
+import { closetRepo, isAvailable } from '../data/repositories.js';
 import { CATEGORIES } from '../domain/gacha.js';
 
 export function itemThumbnail(item, sizeClass) {
@@ -26,7 +26,14 @@ function warmthLabel(item) {
 }
 
 function closetCard(item) {
-  return h('li', { class: 'bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative animate-fade-in', dataset: { itemCard: item.id } },
+  const available = isAvailable(item);
+
+  return h('li', {
+    class: `bg-white p-3 rounded-2xl shadow-sm border flex flex-col items-center relative animate-fade-in ${
+      available ? 'border-gray-100' : 'border-dashed border-gray-300'
+    }`,
+    dataset: { itemCard: item.id },
+  },
     h('button', {
       type: 'button',
       class: 'absolute top-1 right-1 z-10 w-11 h-11 flex items-center justify-center text-white transition-colors',
@@ -37,9 +44,37 @@ function closetCard(item) {
         icon('trash-2', 'w-3.5 h-3.5')
       )
     ),
-    itemThumbnail(item, 'w-full aspect-square mb-2'),
-    h('p', { class: 'text-xs font-bold text-gray-800 text-center', text: item.name }),
-    h('p', { class: 'text-xs text-gray-600 mt-0.5 text-center', text: warmthLabel(item) })
+    h('button', {
+      type: 'button',
+      class: 'absolute top-1 left-1 z-10 w-11 h-11 flex items-center justify-center text-white transition-colors',
+      'aria-label': `${item.name} を編集`,
+      dataset: { action: 'edit-item', id: item.id },
+    },
+      h('span', { class: 'w-6 h-6 bg-gray-900/70 hover:bg-blue-600 active:bg-blue-700 rounded-full flex items-center justify-center shadow-sm transition-colors' },
+        icon('pencil', 'w-3.5 h-3.5')
+      )
+    ),
+    h('div', { class: available ? 'w-full' : 'w-full opacity-40' },
+      itemThumbnail(item, 'w-full aspect-square mb-2')
+    ),
+    h('p', {
+      class: `text-xs font-bold text-center ${available ? 'text-gray-800' : 'text-gray-500'}`,
+      text: item.name,
+    }),
+    h('p', { class: 'text-xs text-gray-600 mt-0.5 text-center', text: warmthLabel(item) }),
+
+    // 洗濯中などで一時的に外したいとき用。削除せずに戻せる
+    h('button', {
+      type: 'button',
+      class: `mt-2 w-full min-h-[44px] rounded-xl text-xs font-bold transition-colors ${
+        available
+          ? 'bg-gray-100 text-gray-700 active:bg-gray-200'
+          : 'bg-amber-100 text-amber-900 active:bg-amber-200'
+      }`,
+      'aria-pressed': String(!available),
+      dataset: { action: 'toggle-availability', id: item.id },
+      text: available ? 'お休みにする' : 'お休み中 → 戻す',
+    })
   );
 }
 
@@ -48,7 +83,10 @@ export async function renderCloset() {
 
   for (const category of CATEGORIES) {
     const container = $(`content-${category}`);
-    const filtered = items.filter((item) => item.category === category);
+    // お休み中は後ろにまとめる。ふだん使うものが先に見えるように
+    const filtered = items
+      .filter((item) => item.category === category)
+      .sort((a, b) => Number(isAvailable(b)) - Number(isAvailable(a)));
     container.replaceChildren();
 
     if (filtered.length === 0) {

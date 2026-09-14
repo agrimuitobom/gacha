@@ -54,8 +54,29 @@ jobs:
       - name: コントラスト比（WCAG AA）
         run: npm run test:contrast
 
+      - name: 撮影画像の縮小・圧縮
+        run: npm run test:image
+
+      - name: 日付の切り替わりと復帰処理
+        run: npm run test:lifecycle
+
+      - name: アウターと編集機能
+        run: npm run test:editing
+
+      - name: コーデ履歴と距離表示
+        run: npm run test:history
+
+      - name: 設定画面とアカウント表示
+        run: npm run test:settings
+
+      - name: 設定画面（Firebase アカウント）
+        run: npm run test:settings:firebase
+
       - name: セキュリティルール（Firebase エミュレータ）
         run: npm run test:rules:ci
+
+      - name: Firestore の読み取り件数
+        run: npm run test:read-cost:ci
 
       - name: E2E（Firebase 経路・エミュレータ）
         run: npm run test:e2e:firebase

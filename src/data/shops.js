@@ -4,7 +4,11 @@
  * 現在は静的データだが、形状は Firestore のコレクションに合わせてある。
  * 将来サーバ管理へ移す場合は shopRepo.list() の中身を差し替えるだけでよい。
  *   shops/{shopId}
- *     { name, distanceKm, hours: { open, close }, url, items: [...] }
+ *     { name, location: { lat, lon } | null, hours: { open, close }, url, items: [...] }
+ *
+ * location は店舗の座標。入れておくと現在地からの直線距離を表示する。
+ * 分からないまま適当な値を入れると、もっともらしく間違った距離が出るので、
+ * 不明なうちは null にしておくこと（距離は表示されない）。
  */
 
 const PLACEHOLDER = 'https://placehold.co/200x200/e2e8f0/475569?text=';
@@ -13,7 +17,8 @@ const SHOPS = [
   {
     id: 'minami',
     name: 'minami',
-    distanceKm: 2.7,
+    // TODO: 店舗の座標が分かったら { lat: ..., lon: ... } を入れる
+    location: null,
     hours: { open: '10:00', close: '19:00' },
     url: 'https://saijo.mypl.net/shop/00000379236/',
     items: [
@@ -25,7 +30,8 @@ const SHOPS = [
   {
     id: 'camarade',
     name: 'キャマラド',
-    distanceKm: 2.0,
+    // TODO: 店舗の座標が分かったら { lat: ..., lon: ... } を入れる
+    location: null,
     hours: { open: '11:00', close: '18:00' },
     url: 'https://instagram.com/0125camarade/',
     items: [

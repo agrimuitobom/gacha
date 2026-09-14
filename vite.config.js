@@ -29,23 +29,78 @@ export default defineConfig(({ mode }) => {
     absoluteUrls(siteUrl),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // autoUpdate は新バージョンを検知すると即リロードする。
+      // 撮影フォーム入力中などに巻き込まれるので、利用者に選ばせる。
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
+        // id を明示すると start_url を変えてもインストール済みアプリと同一だと認識される
+        id: '/',
         name: 'コーデガチャ',
         short_name: 'コーデガチャ',
         description: '天気と予定に合わせて、手持ちの服から今日のコーデを提案します',
         lang: 'ja',
+        dir: 'ltr',
         start_url: '/',
         scope: '/',
         display: 'standalone',
+        display_override: ['standalone', 'minimal-ui'],
         orientation: 'portrait',
         background_color: '#fce7f3',
         theme_color: '#ec4899',
+        categories: ['lifestyle', 'utilities'],
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        // Android Chrome のリッチなインストールダイアログに使われる
+        screenshots: [
+          {
+            src: 'screenshots/home.png',
+            sizes: '390x844',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: '天気と予定に合わせてコーデを引く',
+          },
+          {
+            src: 'screenshots/result.png',
+            sizes: '390x844',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: '提案されたコーデと、その理由',
+          },
+          {
+            src: 'screenshots/closet.png',
+            sizes: '390x844',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: '手持ちの服を登録しておくクローゼット',
+          },
+        ],
+        // アイコン長押しで開くショートカット
+        shortcuts: [
+          {
+            name: 'コーデを引く',
+            short_name: 'ガチャ',
+            description: '今日のコーデをすぐに提案します',
+            url: '/?action=gacha',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
+          },
+          {
+            name: 'クローゼット',
+            short_name: 'クローゼット',
+            description: '登録した服を確認・追加します',
+            url: '/?screen=closet',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
+          },
+          {
+            name: '予定を追加',
+            short_name: '予定',
+            description: 'カレンダーを開いて予定を登録します',
+            url: '/?screen=calendar',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
+          },
         ],
       },
       workbox: {

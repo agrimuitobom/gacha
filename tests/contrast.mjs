@@ -150,6 +150,8 @@ const AUDIT = `(() => {
     for (let node = element; node && node.nodeType === 1; node = node.parentElement) {
       effectiveAlpha *= Number(getComputedStyle(node).opacity);
     }
+    // 実質的に見えていない要素（アニメーション終端のトースト等）は測っても意味がない
+    if (effectiveAlpha < 0.05) continue;
     const textColor = { ...fg, a: effectiveAlpha };
 
     const size = parseFloat(style.fontSize);
@@ -201,6 +203,16 @@ async function audit(label) {
 
 await audit('ホーム');
 
+// インストール案内バナーは beforeinstallprompt でしか出ないので、模擬して検査する
+await page.evaluate(() => {
+  const event = new Event('beforeinstallprompt');
+  event.prompt = () => {};
+  event.userChoice = Promise.resolve({ outcome: 'accepted' });
+  window.dispatchEvent(event);
+});
+await page.waitForTimeout(400);
+await audit('ホーム（インストール案内あり）');
+
 await page.click('#gacha-btn');
 await page.waitForSelector('#result-screen:not(.hidden)');
 await page.waitForTimeout(400);
@@ -223,6 +235,12 @@ await page.waitForTimeout(200);
 await page.click('[data-action="open-calendar"]');
 await page.waitForTimeout(800);
 await audit('カレンダー');
+await page.click('#calendar-screen [data-action="back"]');
+await page.waitForTimeout(300);
+
+await page.click('[data-action="open-settings"]');
+await page.waitForTimeout(1200);
+await audit('設定');
 
 const total = allFailures.reduce((sum, entry) => sum + entry.failures.length, 0);
 console.log(total === 0

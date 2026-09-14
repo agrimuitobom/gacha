@@ -1,6 +1,10 @@
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { shopRepo, isOpenNow, formatPrice } from '../data/shops.js';
+import { distanceKm, formatDistance } from '../domain/geo.js';
+import { state } from '../state.js';
+import { getCurrentPosition } from '../domain/weather.js';
+import { showToast } from './toast.js';
 
 function shopItem(item) {
   return h('li', { class: 'shrink-0 w-20 flex flex-col items-center gap-1' },
@@ -19,6 +23,20 @@ function shopItem(item) {
   );
 }
 
+/**
+ * 現在地からの距離。
+ * 店舗の座標か現在地のどちらかが分からなければ、距離は出さない。
+ * 根拠なく「2.7 km 先」と書くと、事実と違っていても気づけない。
+ */
+function distanceLabel(shop) {
+  if (!shop.location || !state.lastPosition) return null;
+  const km = distanceKm(state.lastPosition, shop.location);
+  return h('p', { class: 'text-xs text-gray-600 mt-1 flex items-center gap-1' },
+    icon('map-pin', 'w-3 h-3'),
+    `直線距離 約${formatDistance(km)}`
+  );
+}
+
 function shopCard(shop) {
   const open = isOpenNow(shop.hours);
 
@@ -26,10 +44,7 @@ function shopCard(shop) {
     h('div', { class: 'flex justify-between items-start gap-2' },
       h('div', { class: 'min-w-0' },
         h('h3', { class: 'font-bold text-gray-900 text-base', text: shop.name }),
-        h('p', { class: 'text-xs text-gray-600 mt-1 flex items-center gap-1' },
-          icon('map-pin', 'w-3 h-3'),
-          `${shop.distanceKm.toFixed(1)} km 先`
-        )
+        distanceLabel(shop)
       ),
       h('span', {
         class: open
@@ -64,5 +79,36 @@ function shopCard(shop) {
 
 export async function renderShops() {
   const shops = await shopRepo.list();
-  $('shop-list').replaceChildren(...shops.map(shopCard));
+  const children = shops.map(shopCard);
+
+  // 座標が入っている店舗があるのに現在地が不明なら、取得の導線を出す
+  const canShowDistance = shops.some((shop) => shop.location);
+  if (canShowDistance && !state.lastPosition) {
+    children.unshift(
+      h('li', { class: 'bg-white p-3 rounded-2xl border border-gray-200 flex items-center gap-2' },
+        icon('map-pin', 'w-4 h-4 text-gray-600'),
+        h('p', { class: 'flex-1 text-xs text-gray-700', text: '現在地を使うと、お店までの距離が出せます' }),
+        h('button', {
+          type: 'button',
+          class: 'shrink-0 px-3 min-h-[44px] bg-gray-900 text-white text-xs font-bold rounded-xl active:bg-gray-700',
+          dataset: { action: 'locate-shops' },
+          text: '現在地を使う',
+        })
+      )
+    );
+  }
+
+  $('shop-list').replaceChildren(...children);
+}
+
+/** 現在地を取得して距離を出し直す */
+export async function locateShops() {
+  try {
+    const position = await getCurrentPosition();
+    state.lastPosition = { lat: position.coords.latitude, lon: position.coords.longitude };
+    await renderShops();
+  } catch (err) {
+    console.warn('位置情報を取得できませんでした:', err.message);
+    showToast('位置情報を取得できませんでした', { iconName: 'alert-circle', iconColor: 'text-amber-400' });
+  }
 }

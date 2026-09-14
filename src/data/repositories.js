@@ -1,11 +1,17 @@
 import { getBackend } from './backend.js';
 import { newId } from './ids.js';
-import { CLOSET_ITEMS, SCHEDULES, OUTFITS } from './collections.js';
+import { CLOSET_ITEMS, SCHEDULES, OUTFITS, META } from './collections.js';
 
 /**
  * アプリが触るのはこの層だけ。
  * バックエンド（ローカル / Firebase）の違いはここより下に隠蔽されている。
  */
+
+/**
+ * 着られる状態か。
+ * この項目が無い時期に登録されたアイテムは、着られるものとして扱う。
+ */
+export const isAvailable = (item) => item.available !== false;
 
 export const closetRepo = {
   async list() {
@@ -19,8 +25,8 @@ export const closetRepo = {
     const id = newId();
 
     let image = { url: null, path: null };
-    if (input.imageDataUrl) {
-      image = await backend.uploadImage(id, input.imageDataUrl);
+    if (input.image?.dataUrl) {
+      image = await backend.uploadImage(id, input.image);
     }
 
     const item = {
@@ -33,15 +39,44 @@ export const closetRepo = {
       warmth: input.warmth,
       formality: input.formality,
       rainSafe: input.rainSafe !== false,
+      // 洗濯中などで一時的に着られない状態。削除せずに外せるようにする
+      available: input.available !== false,
       createdAt: Date.now(),
     };
     return backend.put(CLOSET_ITEMS, item);
   },
 
+  /**
+   * 属性だけを書き換える。写真は触らない。
+   * put はドキュメントを丸ごと置き換えるので、読んでから混ぜて書く。
+   */
+  async update(id, patch) {
+    const backend = await getBackend();
+    const existing = await backend.get(CLOSET_ITEMS, id);
+    if (!existing) throw new Error(`アイテムが見つかりません: ${id}`);
+
+    return backend.put(CLOSET_ITEMS, {
+      ...existing,
+      category: patch.category ?? existing.category,
+      name: patch.name ?? existing.name,
+      warmth: patch.warmth ?? existing.warmth,
+      formality: patch.formality ?? existing.formality,
+      rainSafe: patch.rainSafe !== undefined ? patch.rainSafe : existing.rainSafe,
+      available: patch.available !== undefined ? patch.available : isAvailable(existing),
+    });
+  },
+
+  /** お休み中とふだん着を切り替える */
+  async toggleAvailability(id) {
+    const backend = await getBackend();
+    const existing = await backend.get(CLOSET_ITEMS, id);
+    if (!existing) throw new Error(`アイテムが見つかりません: ${id}`);
+    return backend.put(CLOSET_ITEMS, { ...existing, available: !isAvailable(existing) });
+  },
+
   async remove(id) {
     const backend = await getBackend();
-    const items = await backend.list(CLOSET_ITEMS);
-    const target = items.find((item) => item.id === id);
+    const target = await backend.get(CLOSET_ITEMS, id);
 
     // 画像を先に消す。ドキュメントを先に消すと、失敗時に孤児ファイルが残る。
     if (target?.imagePath) {
@@ -54,15 +89,22 @@ export const closetRepo = {
 export const scheduleRepo = {
   async listByDate(dateKey) {
     const backend = await getBackend();
-    const all = await backend.list(SCHEDULES);
-    return all.filter((item) => item.date === dateKey).sort(compareSchedules);
+    const matched = await backend.query(SCHEDULES, { where: [['date', '==', dateKey]] });
+    return matched.sort(compareSchedules);
   },
 
-  /** カレンダーの点表示用：予定が1件以上ある日付キーの Set */
-  async datesWithSchedule() {
+  /**
+   * カレンダーの点表示用：指定期間に予定がある日付キーの Set。
+   *
+   * 表示中の月だけを読む。全件読むと、使い込むほど
+   * カレンダーを開くたびの読み取り量が増えていく。
+   */
+  async datesWithSchedule(fromKey, toKey) {
     const backend = await getBackend();
-    const all = await backend.list(SCHEDULES);
-    return new Set(all.map((item) => item.date));
+    const matched = await backend.query(SCHEDULES, {
+      where: [['date', '>=', fromKey], ['date', '<=', toKey]],
+    });
+    return new Set(matched.map((item) => item.date));
   },
 
   async add(dateKey, { time, title }) {
@@ -73,6 +115,18 @@ export const scheduleRepo = {
       time: time || '終日',
       title,
       createdAt: Date.now(),
+    });
+  },
+
+  async update(id, patch) {
+    const backend = await getBackend();
+    const existing = await backend.get(SCHEDULES, id);
+    if (!existing) throw new Error(`予定が見つかりません: ${id}`);
+
+    return backend.put(SCHEDULES, {
+      ...existing,
+      time: patch.time || existing.time,
+      title: patch.title ?? existing.title,
     });
   },
 
@@ -92,8 +146,25 @@ function compareSchedules(a, b) {
 export const outfitRepo = {
   async findByDate(dateKey) {
     const backend = await getBackend();
-    const all = await backend.list(OUTFITS);
-    return all.find((item) => item.date === dateKey) || null;
+    const [found] = await backend.query(OUTFITS, {
+      where: [['date', '==', dateKey]],
+      limit: 1,
+    });
+    return found || null;
+  },
+
+  /** 指定期間に決めたコーデ。履歴の表示と、最近着たものの判定に使う */
+  async listByRange(fromKey, toKey) {
+    const backend = await getBackend();
+    const matched = await backend.query(OUTFITS, {
+      where: [['date', '>=', fromKey], ['date', '<=', toKey]],
+    });
+    return matched.sort((a, b) => b.date.localeCompare(a.date));
+  },
+
+  async datesWithOutfit(fromKey, toKey) {
+    const found = await this.listByRange(fromKey, toKey);
+    return new Set(found.map((item) => item.date));
   },
 
   async save(dateKey, outfit) {
@@ -102,6 +173,7 @@ export const outfitRepo = {
     return backend.put(OUTFITS, {
       id: existing ? existing.id : newId(),
       date: dateKey,
+      outerId: outfit.outer?.id || null,
       topsId: outfit.tops?.id || null,
       bottomsId: outfit.bottoms?.id || null,
       shoesId: outfit.shoes?.id || null,
@@ -113,6 +185,8 @@ export const outfitRepo = {
 
 /** 初回起動時のサンプルデータ */
 const SEED_ITEMS = [
+  { category: 'outer', name: 'ネイビーのステンカラーコート', colorClass: 'bg-slate-700', warmth: 4, formality: 3, rainSafe: true },
+  { category: 'outer', name: 'デニムジャケット', colorClass: 'bg-blue-700', warmth: 3, formality: 1, rainSafe: true },
   { category: 'tops', name: '白のオーバーサイズT', colorClass: 'bg-slate-100', warmth: 1, formality: 1, rainSafe: true },
   { category: 'tops', name: 'ストライプシャツ', colorClass: 'bg-blue-100', warmth: 2, formality: 2, rainSafe: true },
   { category: 'tops', name: '黒ニット', colorClass: 'bg-stone-800', warmth: 4, formality: 2, rainSafe: true },
@@ -123,11 +197,29 @@ const SEED_ITEMS = [
   { category: 'shoes', name: 'キャンバススニーカー', colorClass: 'bg-amber-100', warmth: 2, formality: 1, rainSafe: false },
 ];
 
-export async function seedIfEmpty() {
+const SEED_MARKER_ID = 'seed';
+
+/**
+ * 初回だけサンプルを投入する。
+ *
+ * 「0件なら入れる」だけだと、利用者がサンプルを全部消したときに
+ * 次の起動で復活してしまう。投入したこと自体を記録して、
+ * 一度実行したら二度と入れないようにする。
+ *
+ * 記録はアカウントに紐づくので、機種変更しても復活しない。
+ */
+export async function seedIfNeeded() {
+  const backend = await getBackend();
+  if (await backend.get(META, SEED_MARKER_ID)) return false;
+
+  // この変更より前からある利用者は、既にアイテムを持っているので投入しない
   const existing = await closetRepo.list();
-  if (existing.length > 0) return false;
-  for (const item of SEED_ITEMS) {
-    await closetRepo.add(item);
+  if (existing.length === 0) {
+    for (const item of SEED_ITEMS) {
+      await closetRepo.add(item);
+    }
   }
-  return true;
+
+  await backend.put(META, { id: SEED_MARKER_ID, seededAt: Date.now() });
+  return existing.length === 0;
 }

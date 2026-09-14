@@ -1,10 +1,16 @@
 import { $ } from './dom.js';
 import { setIcon } from './icons.js';
-import { state } from '../state.js';
 
-/** 長辺の上限。原寸のままだと数MBになり、保存も同期も現実的でなくなる */
-const MAX_IMAGE_SIZE = 800;
-const JPEG_QUALITY = 0.8;
+/**
+ * 保存する画像の上限。
+ *
+ * 画面に出る最大サイズはクローゼットのカードで 150 CSS px。
+ * DPR 3 の端末でも 450px、DPR 4 でも 600px あれば足りるので、
+ * 640px あれば拡大表示しても粗くならない。
+ * これ以上大きくしても見た目は変わらず、保存容量と通信量だけが増える。
+ */
+const MAX_IMAGE_SIZE = 640;
+const IMAGE_QUALITY = 0.8;
 /** フラッシュ演出：白く光らせてからフェードアウトを始めるまでの間 */
 const FLASH_HOLD_MS = 50;
 
@@ -28,7 +34,6 @@ export function hideCameraError() {
 
 export async function startCamera() {
   hideCameraError();
-  hideCaptureForm();
 
   if (!navigator.mediaDevices?.getUserMedia) {
     showCameraError('この環境ではカメラを利用できません。https:// または localhost で開いているかご確認ください。');
@@ -75,7 +80,29 @@ function flashCamera() {
   }, FLASH_HOLD_MS);
 }
 
-function captureResizedDataUrl(video) {
+let cachedFormat = null;
+
+/**
+ * 保存形式を決める。
+ *
+ * 同じ見た目なら WebP のほうが小さい（写真によるが2〜3割）。
+ * ただし canvas での WebP 書き出しは Safari 16.4 未満が非対応で、
+ * その場合 toDataURL は黙って PNG を返す（JPEGより桁違いに大きい）。
+ * 返ってきた形式を確かめて、駄目なら JPEG に落とす。
+ */
+function pickImageFormat() {
+  if (cachedFormat) return cachedFormat;
+  const probe = document.createElement('canvas');
+  probe.width = 1;
+  probe.height = 1;
+  const encoded = probe.toDataURL('image/webp', IMAGE_QUALITY);
+  cachedFormat = encoded.startsWith('data:image/webp')
+    ? { contentType: 'image/webp', extension: 'webp' }
+    : { contentType: 'image/jpeg', extension: 'jpg' };
+  return cachedFormat;
+}
+
+function captureResizedImage(video) {
   const width = video.videoWidth || 640;
   const height = video.videoHeight || 480;
   const scale = Math.min(1, MAX_IMAGE_SIZE / Math.max(width, height));
@@ -84,45 +111,14 @@ function captureResizedDataUrl(video) {
   canvas.width = Math.round(width * scale);
   canvas.height = Math.round(height * scale);
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+
+  const format = pickImageFormat();
+  return { dataUrl: canvas.toDataURL(format.contentType, IMAGE_QUALITY), ...format };
 }
 
-export function showCaptureForm(dataUrl) {
-  $('capture-preview').src = dataUrl;
-  $('capture-name').value = '';
-  $('capture-category').value = state.activeTab;
-  $('capture-warmth').value = '3';
-  $('capture-formality').value = '1';
-  $('capture-rainsafe').checked = true;
-
-  const form = $('capture-form');
-  form.classList.remove('hidden');
-  form.classList.add('flex');
-  form.removeAttribute('inert');
-  $('capture-name').focus();
-}
-
-export function hideCaptureForm() {
-  const form = $('capture-form');
-  form.classList.add('hidden');
-  form.classList.remove('flex');
-  form.setAttribute('inert', '');
-}
-
+/** 撮影する。成功したら縮小済みの画像を返す */
 export function takePhoto() {
-  if (!currentStream) return false;
+  if (!currentStream) return null;
   flashCamera();
-  state.pendingPhoto = captureResizedDataUrl($('camera-video'));
-  showCaptureForm(state.pendingPhoto);
-  return true;
-}
-
-export function readCaptureForm() {
-  return {
-    name: $('capture-name').value.trim(),
-    category: $('capture-category').value,
-    warmth: parseInt($('capture-warmth').value, 10),
-    formality: parseInt($('capture-formality').value, 10),
-    rainSafe: $('capture-rainsafe').checked,
-  };
+  return captureResizedImage($('camera-video'));
 }

@@ -54,6 +54,7 @@ const validItem = {
   warmth: 1,
   formality: 1,
   rainSafe: true,
+  available: true,
   createdAt: 1757600000000,
 };
 
@@ -72,9 +73,18 @@ await check('本人は予定を作成できる', assertSucceeds(setDoc(
 
 await check('本人はコーデ記録を作成できる', assertSucceeds(setDoc(
   doc(alice, 'users', ALICE, 'outfits', 'o1'),
-  { date: '2026-09-12', topsId: 'item1', bottomsId: null, shoesId: null,
+  { date: '2026-09-12', outerId: 'coat1', topsId: 'item1', bottomsId: null, shoesId: null,
     decidedAt: 1757600000000, createdAt: 1757600000000 }
 )));
+
+await check('本人はサンプル投入済みフラグを書ける', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'meta', 'seed'), { seededAt: 1757600000000 }
+)));
+await check('meta に未知のフィールドは書けない', assertFails(setDoc(
+  doc(alice, 'users', ALICE, 'meta', 'seed'), { seededAt: 1757600000000, isAdmin: true }
+)));
+await check('他人の meta は読めない',
+  assertFails(getDoc(doc(bob, 'users', ALICE, 'meta', 'seed'))));
 
 /* ---- 他人・未認証の遮断 ---- */
 await check('他人は読めない', assertFails(getDoc(itemRef(bob))));
@@ -99,8 +109,32 @@ await check('未知のフィールドが混ざれば拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad6'), { ...validItem, isAdmin: true })));
 await check('他人の領域を指す imagePath は拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad7'), { ...validItem, imagePath: `users/${BOB}/closet/x.jpg` })));
+await check('available が無い古い形式のアイテムも通る', assertSucceeds(setDoc(
+  itemRef(alice, ALICE, 'legacy-item'),
+  { category: 'tops', name: '古いアイテム', imageUrl: null, imagePath: null,
+    colorClass: 'bg-gray-100', warmth: 3, formality: 1, rainSafe: true,
+    createdAt: 1757600000000 }
+)));
+await check('available が真偽値でなければ拒否',
+  assertFails(setDoc(itemRef(alice, ALICE, 'bad9'), { ...validItem, available: 'yes' })));
 await check('rainSafe が真偽値でなければ拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad8'), { ...validItem, rainSafe: 'yes' })));
+await check('アウターを含まないコーデ記録も許容', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'o2'),
+  { date: '2026-09-13', outerId: null, topsId: 'item1', bottomsId: null, shoesId: null,
+    decidedAt: 1757600000000, createdAt: 1757600000000 }
+)));
+await check('outerId が無い古い形式のコーデ記録も通る', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'legacy'),
+  { date: '2026-09-11', topsId: 'item1', bottomsId: null, shoesId: null,
+    decidedAt: 1757600000000, createdAt: 1757600000000 }
+)));
+await check('コーデ記録に未知のフィールドは書けない', assertFails(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'o3'),
+  { date: '2026-09-13', outerId: null, topsId: null, bottomsId: null, shoesId: null,
+    decidedAt: 1757600000000, createdAt: 1757600000000, hatId: 'x' }
+)));
+
 await check('日付形式が不正な予定は拒否', assertFails(setDoc(
   doc(alice, 'users', ALICE, 'schedules', 'bad'),
   { date: '2026/9/12', time: '19:00', title: 'x', createdAt: 1757600000000 }
@@ -124,11 +158,14 @@ await check('他人の領域には保存できない', assertFails(
 await check('他人の画像は読めない', assertFails(
   getBytes(ref(bobStorage, `users/${ALICE}/closet/a.jpg`))
 ));
-await check('JPEG 以外は拒否', assertFails(
+await check('本人は WebP も保存できる', assertSucceeds(
+  uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/a.webp`), jpeg, { contentType: 'image/webp' })
+));
+await check('JPEG / WebP 以外は拒否', assertFails(
   uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/c.png`), jpeg, { contentType: 'image/png' })
 ));
-await check('2MB を超えるファイルは拒否', assertFails(
-  uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/big.jpg`), new Uint8Array(2 * 1024 * 1024 + 10), {
+await check('1MB を超えるファイルは拒否', assertFails(
+  uploadBytes(ref(aliceStorage, `users/${ALICE}/closet/big.jpg`), new Uint8Array(1 * 1024 * 1024 + 10), {
     contentType: 'image/jpeg',
   })
 ));

@@ -42,7 +42,16 @@ function collectClassNames() {
 
     for (const pattern of patterns) {
       for (const match of source.matchAll(pattern)) {
-        const chunk = match[1].replace(/['"]/g, ' ');
+        // テンプレートリテラルの ${...} の中には、
+        //   `... ${available ? 'border-gray-100' : 'border-dashed'}`
+        // のように条件で切り替わるクラス名が入る。式ごと捨てると
+        // それらが検査されなくなるので、中の文字列リテラルだけ拾う。
+        const literals = match[1].replace(/\$\{[\s\S]*?\}/g, ' ');
+        const inExpressions = [...match[1].matchAll(/\$\{([\s\S]*?)\}/g)]
+          .flatMap(([, expr]) => [...expr.matchAll(/'([^']*)'|"([^"]*)"/g)])
+          .map(([, single, double]) => single ?? double)
+          .join(' ');
+        const chunk = `${literals} ${inExpressions}`.replace(/['"]/g, ' ');
         for (const raw of chunk.split(/\s+/)) {
           const name = raw.trim();
           if (!name || name.includes('${')) continue;
@@ -57,7 +66,8 @@ function collectClassNames() {
 
 /** アプリ独自のクラス（Tailwind のユーティリティではない） */
 const NON_UTILITY = new Set([
-  'schedule-input-row', 'schedule-time-input', 'schedule-title-input', 'group',
+  'schedule-input-row', 'schedule-time-input', 'schedule-title-input',
+  'schedule-edit-time', 'schedule-edit-title', 'group',
 ]);
 
 /** Tailwind はセレクタ内の記号を \ でエスケープして出力する */

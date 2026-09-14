@@ -6,7 +6,13 @@
  * Firebase エミュレータ向けにビルドした dist を対象にすると、
  * Firestore / Cloud Storage を含む実際の保存経路を通しで検証できる。
  */
+import { readFileSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
+
+/** 初期投入されるアイテム数。シードを増減しても追従するよう実装から数える */
+const SEED_COUNT = (readFileSync('src/data/repositories.js', 'utf8')
+  .match(/const SEED_ITEMS = \[([\s\S]*?)\n\];/)?.[1] || '')
+  .split('\n').filter((line) => line.trim().startsWith('{ category:')).length;
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4173/';
 
@@ -276,10 +282,92 @@ const gacha = async (page) => {
   });
   ok('Service Worker が登録される', swRegistered);
 
+  ok('manifest に id と display_override がある',
+    manifest.id === '/' && Array.isArray(manifest.display_override),
+    `id:${manifest.id}`);
+
+  // Android のリッチなインストールダイアログに使われる
+  const shots = manifest.screenshots || [];
+  ok('screenshots が3枚あり narrow 指定されている',
+    shots.length === 3 && shots.every((s) => s.form_factor === 'narrow'),
+    `${shots.length}枚`);
+  const shotStatuses = await page.evaluate(async (list) =>
+    Promise.all(list.map(async (s) => (await fetch('/' + s.src.replace(/^\//, ''))).status)), shots);
+  ok('screenshots が実際に配信されている', shotStatuses.every((s) => s === 200), shotStatuses.join(','));
+
+  const shortcuts = manifest.shortcuts || [];
+  ok('shortcuts が3件ある', shortcuts.length === 3,
+    shortcuts.map((s) => s.short_name).join(' / '));
+
   await context.close();
 }
 
-/* ============ 6. Firebase 経路の実地確認（エミュレータ使用時のみ） ============ */
+/* ============ 6. PWA のショートカットとインストール導線 ============ */
+{
+  const { context, page } = await newPage((r) => r.fulfill(weatherResponse(20, 0, 0)));
+
+  // /?screen=closet でクローゼットが開くか
+  await page.goto(`${BASE_URL}?screen=closet`);
+  await page.waitForTimeout(2500);
+  const closetOpen = !(await page.locator('#closet-screen').getAttribute('class')).includes('hidden');
+  ok('ショートカット ?screen=closet でクローゼットが開く', closetOpen);
+  ok('ショートカットのクエリが URL から取り除かれる',
+    !(await page.evaluate(() => location.search)), await page.evaluate(() => location.search));
+
+  // /?action=gacha でそのまま結果画面まで進むか
+  await page.goto(`${BASE_URL}?action=gacha`);
+  await page.waitForTimeout(5000);
+  const resultOpen = !(await page.locator('#result-screen').getAttribute('class')).includes('hidden');
+  ok('ショートカット ?action=gacha で結果画面まで進む', resultOpen);
+
+  // インストール案内の置き場があり、既定では空であること
+  await page.goto(BASE_URL);
+  await page.waitForTimeout(2000);
+  const slot = await page.locator('#install-slot').count();
+  ok('インストール案内の置き場がある', slot === 1);
+
+  // beforeinstallprompt を模擬して案内が出るか（Chromium は自動発火しない）
+  await page.evaluate(() => {
+    const event = new Event('beforeinstallprompt');
+    event.prompt = () => { window.__installPrompted = true; };
+    event.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(event);
+  });
+  await page.waitForTimeout(300);
+  ok('インストール案内バナーが表示される',
+    (await page.locator('#install-banner').count()) === 1);
+
+  await page.click('[data-action="install-app"]');
+  await page.waitForTimeout(300);
+  ok('「追加」でブラウザのインストール処理が呼ばれる',
+    await page.evaluate(() => window.__installPrompted === true));
+
+  // 閉じたら再表示されないこと
+  await page.evaluate(() => {
+    const event = new Event('beforeinstallprompt');
+    event.prompt = () => {};
+    event.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(event);
+  });
+  await page.waitForTimeout(200);
+  if (await page.locator('[data-action="dismiss-install"]').count()) {
+    await page.click('[data-action="dismiss-install"]');
+    await page.waitForTimeout(200);
+  }
+  await page.evaluate(() => {
+    const event = new Event('beforeinstallprompt');
+    event.prompt = () => {};
+    event.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(event);
+  });
+  await page.waitForTimeout(300);
+  ok('一度閉じたら再表示されない',
+    (await page.locator('#install-banner').count()) === 0);
+
+  await context.close();
+}
+
+/* ============ 7. Firebase 経路の実地確認（エミュレータ使用時のみ） ============ */
 if (process.env.CHECK_FIREBASE === 'true') {
   const { context, page } = await newPage((r) => r.fulfill(weatherResponse(20, 0, 0)));
   await page.goto(BASE_URL);
@@ -313,7 +401,8 @@ if (process.env.CHECK_FIREBASE === 'true') {
     };
 
     const items = await read('closetItems');
-    ok('初期データが Firestore に書き込まれている', items.length === 8, `${items.length}件`);
+    ok('初期データが Firestore に書き込まれている',
+      items.length === SEED_COUNT, `${items.length}件 / 期待 ${SEED_COUNT}件`);
 
     // 予定を追加して Firestore に届くか
     await page.click('[data-action="open-calendar"]');
