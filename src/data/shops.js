@@ -9,9 +9,37 @@
  * location は店舗の座標。入れておくと現在地からの直線距離を表示する。
  * 分からないまま適当な値を入れると、もっともらしく間違った距離が出るので、
  * 不明なうちは null にしておくこと（距離は表示されない）。
+ *
+ * ---------------------------------------------------------------------------
+ * items（店頭の商品）について
+ * ---------------------------------------------------------------------------
+ * ここは実在する店舗の情報を載せる場所なので、商品名・価格・写真は
+ * 実物だけを入れること。以前はストックフォトと架空の商品名・価格が
+ * 入っていたが、実在の店名とリンクの隣に並ぶと、利用者には本物の
+ * 品揃えと区別がつかない。分からないものは空のままにしておく
+ * （items が空なら、画面には「商品の写真は準備中です」と出る）。
+ *
+ * 写真は店舗の許可を得たもの、または自分で撮影したものに限る。
+ * 店舗のサイトや SNS の写真を許可なく転載しないこと。
+ *
+ * 追加のしかた:
+ *   1. 写真を所定のサイズへ変換して public/shops/<店舗ID>/ に置く
+ *        npm run shop:photos -- minami ~/Desktop/shirt.jpg
+ *      （実行すると、下に貼り付ける items の雛形も出力される）
+ *   2. その出力を items に貼り、name と price を実物に合わせて直す
+ *
+ *   items: [
+ *     { photo: 'shirt.webp', name: '（実物の商品名）', price: 4900 },
+ *     // 価格が分からない・変動するものは price: null（価格を表示しない）
+ *     { photo: 'knit.webp', name: '（実物の商品名）', price: null },
+ *   ],
+ *
+ * 宣言した写真が実在するか、サイズが上限内かは tests/shop-photos.mjs が
+ * 検証する（npm run test:shop）。ファイル名を間違えたまま公開されることはない。
  */
 
-const PLACEHOLDER = 'https://placehold.co/200x200/e2e8f0/475569?text=';
+/** 写真の置き場所。public/ 配下なので Hosting からそのまま配信される */
+const PHOTO_BASE = '/shops';
 
 const SHOPS = [
   {
@@ -21,11 +49,8 @@ const SHOPS = [
     location: null,
     hours: { open: '10:00', close: '19:00' },
     url: 'https://saijo.mypl.net/shop/00000379236/',
-    items: [
-      { name: 'ルーズシャツ', price: 4900, imageUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=200&q=80', fallback: `${PLACEHOLDER}Shirt` },
-      { name: 'ニットベスト', price: 5500, imageUrl: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=200&q=80', fallback: `${PLACEHOLDER}Knit` },
-      { name: 'デニムスカート', price: 6800, imageUrl: 'https://images.unsplash.com/photo-1582552938357-32b906df40cb?auto=format&fit=crop&w=200&q=80', fallback: `${PLACEHOLDER}Skirt` },
-    ],
+    // TODO: 実物の写真と商品名・価格が用意できたら追加する
+    items: [],
   },
   {
     id: 'camarade',
@@ -34,19 +59,25 @@ const SHOPS = [
     location: null,
     hours: { open: '11:00', close: '18:00' },
     url: 'https://instagram.com/0125camarade/',
-    items: [
-      { name: 'ワンピース', price: 8900, imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=200&q=80', fallback: `${PLACEHOLDER}Dress` },
-      { name: 'ブラウス', price: 6000, imageUrl: 'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?auto=format&fit=crop&w=200&q=80', fallback: `${PLACEHOLDER}Blouse` },
-      { name: 'カーディガン', price: 7200, imageUrl: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=200&q=80', fallback: `${PLACEHOLDER}Cardigan` },
-    ],
+    // TODO: 実物の写真と商品名・価格が用意できたら追加する
+    items: [],
   },
 ];
 
+/** 店舗IDから写真ディレクトリのURLを組み立てる（テストからも使う） */
+export const photoUrlFor = (shopId, photo) => `${PHOTO_BASE}/${shopId}/${photo}`;
+
 export const shopRepo = {
   async list() {
-    return SHOPS;
+    return SHOPS.map((shop) => ({
+      ...shop,
+      items: shop.items.map((item) => ({ ...item, photoUrl: photoUrlFor(shop.id, item.photo) })),
+    }));
   },
 };
+
+/** 検証用。UI を通さずに宣言そのものを見たいとき（tests/shop-photos.mjs） */
+export const shopsForTest = SHOPS;
 
 /**
  * 営業中かどうかを現在時刻から判定する。

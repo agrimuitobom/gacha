@@ -104,7 +104,7 @@ export default defineConfig(({ mode }) => {
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,webmanifest}'],
         // Firebase SDK は 600KB 超あり、未設定なら読み込まれもしない。
         // 初回訪問のプリキャッシュから外し、実際に使われたときだけ保存する。
         globIgnores: ['**/firebase-*.js'],

@@ -10,16 +10,33 @@ function shopItem(item) {
   return h('li', { class: 'shrink-0 w-20 flex flex-col items-center gap-1' },
     h('div', { class: 'w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100' },
       h('img', {
-        src: item.imageUrl,
+        src: item.photoUrl,
         alt: item.name,
+        // 表示は 80x80 固定なので、端末に幅を推測させない
+        width: '80',
+        height: '80',
         loading: 'lazy',
         decoding: 'async',
-        dataset: { fallback: item.fallback },
         class: 'w-full h-full object-cover hover:scale-105 transition-transform duration-300',
       })
     ),
     h('span', { class: 'text-xs font-bold text-gray-800 truncate w-full text-center', text: item.name }),
-    h('span', { class: 'text-xs text-pink-700 font-bold', text: formatPrice(item.price) })
+    // 価格が分からない商品は、値段を書かない（0円や「〜円台」と書くと誤解される）
+    ...(typeof item.price === 'number'
+      ? [h('span', { class: 'text-xs text-pink-700 font-bold', text: formatPrice(item.price) })]
+      : [])
+  );
+}
+
+/**
+ * 商品がまだ登録されていない店舗の表示。
+ *
+ * ここに「それらしい商品」を並べると、実在の店名とリンクの隣にあるぶん、
+ * 利用者には本物の品揃えと区別がつかない。無いものは無いと書く。
+ */
+function itemsPlaceholder() {
+  return h('p', { class: 'text-xs text-gray-600 bg-gray-50 rounded-xl px-3 py-2' },
+    '商品の写真は準備中です。品揃えは店舗ページをご覧ください。'
   );
 }
 
@@ -54,9 +71,11 @@ function shopCard(shop) {
       })
     ),
 
-    h('ul', { class: 'flex gap-3 overflow-x-auto no-scrollbar py-1 list-none' },
-      ...shop.items.map(shopItem)
-    ),
+    shop.items.length
+      ? h('ul', { class: 'flex gap-3 overflow-x-auto no-scrollbar py-1 list-none' },
+          ...shop.items.map(shopItem)
+        )
+      : itemsPlaceholder(),
 
     h('div', { class: 'flex justify-between items-center mt-1 pt-3 border-t border-gray-100 gap-2' },
       h('p', { class: 'text-xs text-gray-600 flex items-center gap-1' },
