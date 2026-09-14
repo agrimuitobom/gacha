@@ -42,6 +42,7 @@ npm run dev
 | `npm run test:editing` | アウターの出し分けと編集機能の検証 |
 | `npm run test:history` | コーデ履歴と距離表示の検証 |
 | `npm run test:shop` | 店舗の商品写真の検証（サーバ不要） |
+| `npm run test:auth-degrade` | 接続できないときの表示の検証（エミュレータ込みで自動） |
 | `npm run shop:photos` | 店舗の商品写真を 320px の WebP に変換して `public/shops/` に置く |
 | `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
 | `npm run test:rules:ci` | 同上（エミュレータの起動・停止まで自動） |
@@ -470,6 +471,21 @@ script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none' �
 > CSP はホスティング側のヘッダで効きます。`npm run dev` / `npm run preview` には付きません。Firebase Hosting 以外へ配置する場合は、同じヘッダをそのサーバに設定してください。
 
 > 独自の認証ドメインを使う場合は `frame-src` に、Cloud Functions を使う場合は `connect-src` に、それぞれ追記が必要です。
+
+#### 匿名認証を有効にしておくこと
+
+**Firebase コンソールの Authentication → ログイン方法 で「匿名」を有効にしてください。** Google だけ有効にしても動きません。
+
+このアプリは匿名アカウントで開始し、あとから Google アカウントへ紐づける作りです（何も聞かずに使い始められるようにするため）。匿名が無効だと起動時の `signInAnonymously` が `auth/admin-restricted-operation` で落ち、**ローカル保存に退避したまま Google 連携の導線ごと消えます**。利用者からは「Google ログインにならない」としか見えません。
+
+退避したときの表示は、原因によって分けています。
+
+| 原因 | 表示 |
+| --- | --- |
+| 設定（`auth/admin-restricted-operation` など） | 「オンライン同期を開始できませんでした」＋ 原因コード。待っても直らないため、設定を見るよう促す |
+| 通信（`auth/network-request-failed` など） | 「オンライン同期に接続できていません」＋ 接続が戻るのを待つ案内 |
+
+以前は一律に後者を出していたため、設定が原因でも「接続が戻ってから開き直してください」と案内していました。永久に直りません。`npm run test:auth-degrade` が両方の分岐を検証します（匿名認証が無効なときの応答をエミュレータ相手に再現します）。
 
 #### Google ログインと CSP
 

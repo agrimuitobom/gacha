@@ -75,6 +75,9 @@ jobs:
       - name: 設定画面（Firebase アカウント）
         run: npm run test:settings:firebase
 
+      - name: 接続できないときの表示（設定エラー / 通信エラー）
+        run: npm run test:auth-degrade
+
       - name: セキュリティルール（Firebase エミュレータ）
         run: npm run test:rules:ci
 
