@@ -337,15 +337,6 @@ function registerEventHandlers() {
     });
   });
 
-  // 画像の読み込み失敗を委譲で処理する（error はバブルしないので capture フェーズで拾う）
-  document.addEventListener('error', (event) => {
-    const img = event.target;
-    if (!(img instanceof HTMLImageElement)) return;
-    const fallback = img.dataset.fallback;
-    if (!fallback || img.src === fallback) return;
-    img.src = fallback;
-  }, true);
-
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       if (currentScreen() === 'camera-screen') closeCamera();

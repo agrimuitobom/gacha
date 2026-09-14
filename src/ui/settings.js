@@ -146,9 +146,14 @@ export async function linkAccount() {
       'auth/popup-blocked': 'ポップアップがブロックされました。ブラウザの設定をご確認ください',
       'auth/cancelled-popup-request': '連携を中止しました',
       'auth/network-request-failed': '通信できませんでした。接続をご確認ください',
-      'auth/operation-not-allowed': 'Google ログインが有効になっていません',
+      // 以下は利用者ではなく設定側の問題。何を直せばよいか分かる文言にする
+      'auth/operation-not-allowed': 'Google ログインが有効になっていません（Firebase の設定）',
+      'auth/unauthorized-domain': 'このドメインが許可されていません（Firebase の設定）',
     };
-    showToast(messages[err.code] || '連携できませんでした', {
+    // 原因不明のときは code をそのまま見せる。「連携できませんでした」だけだと
+    // 利用者も開発側も切り分けられない（実際に auth/internal-error で詰まった）
+    const fallback = err.code ? `連携できませんでした（${err.code}）` : '連携できませんでした';
+    showToast(messages[err.code] || fallback, {
       iconName: 'alert-circle', iconColor: 'text-amber-400',
     });
   }

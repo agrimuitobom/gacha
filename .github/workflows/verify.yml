@@ -66,6 +66,9 @@ jobs:
       - name: コーデ履歴と距離表示
         run: npm run test:history
 
+      - name: 店舗の商品写真
+        run: npm run test:shop
+
       - name: 設定画面とアカウント表示
         run: npm run test:settings
 

@@ -111,6 +111,18 @@ async function open(temp, options = {}) {
 /* ---------- 店舗までの距離 ---------- */
 {
   const { context, page } = await open(20);
+
+  // 商品写真は public/shops 配下だけを使う。ストックフォトを取りに行っていたら記録される。
+  // data: や blob: は自前の画像なので対象外、自サイト以外の http(s) だけを見る。
+  const pageOrigin = new URL(BASE_URL).origin;
+  const externalImages = [];
+  page.on('request', (request) => {
+    if (request.resourceType() !== 'image') return;
+    const url = request.url();
+    if (!/^https?:/i.test(url)) return;
+    if (new URL(url).origin !== pageOrigin) externalImages.push(url);
+  });
+
   await page.click('[data-action="open-shop"]');
   await page.waitForTimeout(1200);
 
@@ -120,6 +132,26 @@ async function open(temp, options = {}) {
   ok('根拠のない「2.7 km 先」が消えている', !text.includes('2.7'));
   ok('店舗情報そのものは表示される',
     text.includes('minami') && text.includes('キャマラド'));
+
+  // 実在の店名の隣に架空の商品を並べない。
+  // 期待値は shops.js の宣言から導く（本物の商品を追加してもこの判定は正しいまま）
+  const { shopsForTest } = await import('../src/data/shops.js');
+  const empty = shopsForTest.filter((shop) => shop.items.length === 0);
+  const filled = shopsForTest.flatMap((shop) => shop.items);
+
+  ok('商品が未登録の店舗は「準備中」と表示する',
+    empty.length === 0 || text.includes('準備中'),
+    `未登録 ${empty.length}店舗`);
+  ok('登録済みの商品は宣言どおりの名前で出る',
+    filled.every((item) => text.includes(item.name)),
+    `登録 ${filled.length}件`);
+  ok('画面に出る価格は宣言されたものだけ',
+    (text.match(/¥[0-9,]+/g) || []).length ===
+      filled.filter((item) => typeof item.price === 'number').length,
+    text.match(/¥[0-9,]+/g)?.join(' ') || '(価格表示なし)');
+  ok('外部のストックフォトを読み込んでいない',
+    externalImages.length === 0, externalImages.slice(0, 2).join(' | '));
+
   await context.close();
 }
 

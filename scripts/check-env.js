@@ -8,6 +8,8 @@
  * ビルドは通るのに実行時に Firebase へ接続できないアプリができる。
  * どちらもここで止める。
  */
+import { readFileSync } from 'node:fs';
+
 
 const REQUIRED = [
   'VITE_FIREBASE_API_KEY',
@@ -54,6 +56,29 @@ const FORMAT_RULES = {
 const problems = [];
 const warnings = [];
 
+/**
+ * CSP の frame-src が、設定された authDomain を許可しているか。
+ *
+ * Firebase Auth はポップアップの結果を https://<authDomain>/__/auth/iframe
+ * 経由で受け取る。frame-src に載っていないと CSP に止められ、ポップアップが
+ * 出ないまま auth/internal-error になる。画面には「連携できませんでした」と
+ * 出るだけで、原因が分からない。ここで気づけるようにする。
+ */
+function frameSrcAllows(authDomain) {
+  const csp = JSON.parse(readFileSync('firebase.json', 'utf8'))
+    .hosting.headers.flatMap((rule) => rule.headers)
+    .find((header) => header.key === 'Content-Security-Policy')?.value || '';
+  const sources = (csp.match(/frame-src ([^;]*)/)?.[1] || '').trim().split(/\s+/);
+
+  return sources.some((source) => {
+    const host = source.replace(/^https:\/\//, '');
+    if (host === authDomain) return true;
+    // *.example.com は1ラベル分のワイルドカード
+    if (host.startsWith('*.')) return authDomain.endsWith(host.slice(1));
+    return false;
+  });
+}
+
 /** コピペで混入しやすい余計な文字を検出する */
 function findDecoration(value) {
   if (/^["'].*["']$/s.test(value)) return 'クォート（" または \'）で囲まれています';
@@ -85,6 +110,19 @@ for (const key of [...REQUIRED, ...RECOMMENDED]) {
   if (rule && !rule.test(raw)) {
     problems.push({ key, reason: `形式が正しくありません（${rule.hint}）`, value: raw });
   }
+}
+
+// authDomain が CSP の frame-src に載っているか（Google ログインが動く前提）
+const authDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN;
+if (authDomain && !findDecoration(authDomain) && !frameSrcAllows(authDomain)) {
+  problems.push({
+    key: 'VITE_FIREBASE_AUTH_DOMAIN',
+    reason: 'firebase.json の CSP（frame-src）が、このドメインを許可していません。'
+      + 'このままだと Google ログインがポップアップを開けずに失敗します',
+    value: authDomain,
+    fix: `firebase.json の frame-src に https://${authDomain} を追加するか、`
+      + 'authDomain を firebaseapp.com のものに戻してください',
+  });
 }
 
 for (const warning of warnings) console.warn(`⚠ ${warning}`);

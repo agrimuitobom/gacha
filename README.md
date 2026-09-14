@@ -7,7 +7,7 @@
 - **コーデガチャ** — 気温・降水確率・その日の予定から手持ちの服をスコアリングし、加重ランダムで1組引きます
 - **マイクローゼット** — 服を撮影して登録（アウター / トップス / ボトムス / シューズ）。あとから編集でき、洗濯中などは一時的に外せます
 - **カレンダー＆予定** — 予定を登録すると、その日のコーデ提案に反映されます。決めたコーデもここから見返せます
-- **周辺の服屋** — 近隣ショップの情報
+- **周辺の服屋** — 近隣ショップの営業時間・距離・商品（商品は実物の写真のみ。未登録のうちは「準備中」と表示）
 - **PWA** — ホーム画面に追加してアプリとして起動でき、オフラインでも動きます
 
 ## セットアップ
@@ -41,6 +41,8 @@ npm run dev
 | `npm run test:settings` | 設定画面とアカウント表示の検証 |
 | `npm run test:editing` | アウターの出し分けと編集機能の検証 |
 | `npm run test:history` | コーデ履歴と距離表示の検証 |
+| `npm run test:shop` | 店舗の商品写真の検証（サーバ不要） |
+| `npm run shop:photos` | 店舗の商品写真を 320px の WebP に変換して `public/shops/` に置く |
 | `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
 | `npm run test:rules:ci` | 同上（エミュレータの起動・停止まで自動） |
 | `npm run test:e2e:firebase` | Firebase 経路の E2E（エミュレータ込みで自動） |
@@ -263,6 +265,61 @@ Firestore のローカルキャッシュ（`persistentLocalCache`）を有効に
 
 距離は Haversine 式で求めた直線距離で、道のりではありません。表示にも「直線距離 約〜」と明記しています。
 
+## 店舗の商品写真
+
+ショップ画面には**実在する店舗名とリンク**が並びます。その隣に置く商品の写真・名前・価格は、実物だけを載せます。
+
+以前はストックフォト（Unsplash）と、こちらで考えた商品名・価格が入っていました。利用者から見ると本物の品揃えと区別がつかないため、すべて削除しました。**現在はどちらの店舗も商品が未登録で、画面には「商品の写真は準備中です」と表示されます。**
+
+### 載せてよい写真
+
+店舗の許可を得た写真か、自分で撮影した写真に限ります。店舗のサイトや SNS の写真を許可なく転載しないでください。
+
+### 追加のしかた
+
+1. 写真を変換して `public/shops/<店舗ID>/` に置きます。
+
+   ```bash
+   npm run shop:photos -- minami ~/Desktop/shirt.jpg ~/Desktop/knit.jpg
+   ```
+
+   元のファイルは読むだけで、変更しません。EXIF の回転を反映し、正方形に切り、**320px の WebP** として書き出します（実測: 10.4MB のスマホ写真 → 11KB）。
+
+2. 実行すると貼り付ける雛形が出るので、`src/data/shops.js` の `items` に貼り、商品名と価格を実物に合わせます。
+
+   ```js
+   items: [
+     { photo: 'shirt.webp', name: '（実物の商品名）', price: 4900 },
+     // 価格が分からない・変動するものは null（価格を表示しません）
+     { photo: 'knit.webp', name: '（実物の商品名）', price: null },
+   ],
+   ```
+
+3. `npm run test:shop` で確認します。
+
+写真はリポジトリに入り、Firebase Hosting から配信されます。Storage の無料枠を使わず、Service Worker がプリキャッシュするのでオフラインでも表示されます。差し替えにはデプロイが必要です。
+
+### なぜ 320px なのか
+
+画面に出るのは 80 CSS px の正方形です。DPR 4 の端末でも 320px あれば足ります。これ以上大きくしても見た目は変わらず、通信量とプリキャッシュの容量だけが増えます。
+
+### 退行の防止
+
+`npm run test:shop`（CI でも実行）が次を確認します。
+
+| 確認すること | 落ちる例 |
+| --- | --- |
+| 宣言した写真が実在する | `items` のファイル名を打ち間違えた |
+| `public/shops/` に未参照のファイルが無い | 差し替えて古いファイルを消し忘れた |
+| 形式が WebP、一辺 320px・60KB 以内 | 元の写真をそのまま置いた |
+| 商品名が空でない | 雛形の `name: ''` のまま貼った |
+| 価格が `null` か正の数 | 分からない価格に `0` や推測値を入れた |
+| 外部のストックフォトを参照していない | Unsplash 等の URL が復活した |
+
+`npm run test:history` は画面側も確認します。未登録の店舗に「準備中」が出ること、表示される商品名と価格が `shops.js` の宣言と一致すること、**外部から画像を1枚も読み込んでいない**ことです。
+
+写真を `public/` 配下だけに限ったので、CSP の `img-src` から `images.unsplash.com` と `placehold.co` を外しました。
+
 ## 読み取り件数
 
 Firestore は**クエリが返したドキュメント数で課金**されます。全件取ってからクライアントで絞る実装だと、使い込むほど費用と待ち時間が線形に増えます。
@@ -414,6 +471,27 @@ script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none' �
 
 > 独自の認証ドメインを使う場合は `frame-src` に、Cloud Functions を使う場合は `connect-src` に、それぞれ追記が必要です。
 
+#### Google ログインと CSP
+
+`script-src` に `https://apis.google.com` が入っています。**外しても画面上は何も変わらないので、外さないでください。**
+
+Firebase Auth は `signInWithPopup` / `linkWithPopup` を呼ぶと、ポップアップを開く**前に** `https://apis.google.com/js/api.js` を `<script>` として読み込み、それで作った iframe 経由でポップアップの結果を受け取ります（SDK に URL がハードコードされています）。
+
+`script-src 'self'` だけだとここで止まり、**ポップアップが開かないまま `auth/internal-error` になります**。画面には「連携できませんでした」としか出ないため、原因が分かりません。実際にこれで Google ログインが動いていませんでした。
+
+必要なのは次の2つです。
+
+| ディレクティブ | 必要な値 | 用途 |
+| --- | --- | --- |
+| `script-src` | `https://apis.google.com` | ポップアップの結果を受け取る仕組みの読み込み |
+| `frame-src` | `https://<authDomain>` | `https://<authDomain>/__/auth/iframe` |
+
+ポップアップ本体（`/__/auth/handler`）は別ウィンドウなので `frame-src` の対象外です。iframe とポップアップはどちらも別オリジンの文書なので、こちら側の `connect-src` には影響されません。
+
+`npm run test:csp` が、この CSP で `apis.google.com` を実際に読み込めること、`frame-src` に authDomain のオリジンがあること、そして **SDK が今もその URL を使っていること**（バージョンアップでホストが変わったら気づけるように）を確認します。
+
+`npm run check:env` は、`VITE_FIREBASE_AUTH_DOMAIN` が `firebase.json` の `frame-src` に載っているかを突き合わせます。authDomain を `web.app` のものに変えると frame-src に一致しなくなるため、デプロイ用ビルドを止めます。
+
 ## 構成
 
 ```
@@ -429,7 +507,7 @@ src/
     backend-firebase.js   Firestore + Cloud Storage 実装
     firebase-app.js       SDK 初期化・認証
     repositories.js       アプリが触る唯一のデータ層
-    shops.js              周辺の服屋（静的データ + 営業時間判定）
+    shops.js              周辺の服屋（静的データ + 営業時間判定 + 商品写真の宣言）
     account.js            アカウントの状態と Google 連携
   domain/
     gacha.js              抽選ロジック（DOM非依存）
