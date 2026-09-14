@@ -267,6 +267,10 @@ const actions = {
   'cancel-item-form': () => cancelItemForm(),
   'save-item-form': () => saveItemForm(),
   'edit-item': (el) => editClosetItem(el.dataset.id, el),
+  'toggle-availability': async (el) => {
+    await closetRepo.toggleAvailability(el.dataset.id);
+    await renderCloset();
+  },
   back: () => navigateBack(),
   'switch-tab': (el) => switchTab(el.dataset.tab),
   'delete-item': (el) => deleteClosetItem(el.dataset.id),

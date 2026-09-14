@@ -127,9 +127,15 @@ export function weightedPick(items, context, random = Math.random) {
   return items[items.length - 1];
 }
 
-export function buildMessage(context, missing, { outerPicked = false, outerUnavailable = false } = {}) {
+export function buildMessage(context, missing, {
+  outerPicked = false, outerUnavailable = false, allResting = [],
+} = {}) {
   if (missing.length > 0) {
     return `クローゼットに${missing.join('・')}が登録されていません。右上の「＋」から追加すると、完全なコーデを提案できます。`;
+  }
+  if (allResting.length > 0) {
+    // 登録はあるが全部お休み中。削除との区別が付くよう言い分ける
+    return `${allResting.join('・')}がすべてお休み中です。クローゼットから戻すと提案できます。`;
   }
 
   const parts = [];
@@ -173,14 +179,24 @@ export function buildMessage(context, missing, { outerPicked = false, outerUnava
 export function drawOutfit({ items, weather, schedules, recentlyWorn, random = Math.random }) {
   const context = buildContext({ weather, schedules, recentlyWorn });
 
-  const byCategory = Object.fromEntries(
+  const registered = Object.fromEntries(
     CATEGORIES.map((category) => [category, items.filter((item) => item.category === category)])
+  );
+  // 洗濯中などで着られないものは候補から外す。
+  // 最近着たものと違って減点ではなく除外する。今そこに無いのだから選びようがない。
+  const byCategory = Object.fromEntries(
+    CATEGORIES.map((category) => [category, registered[category].filter((item) => item.available !== false)])
   );
 
   // 「足りない」と言うのは必須カテゴリだけ。
   // アウターは気温次第で不要なので、無くても欠品扱いにしない。
   const missing = REQUIRED_CATEGORIES
-    .filter((category) => byCategory[category].length === 0)
+    .filter((category) => registered[category].length === 0)
+    .map((category) => CATEGORY_LABELS[category]);
+
+  // 登録はあるのに全部お休み中、という状態は欠品とは別に伝える
+  const allResting = REQUIRED_CATEGORIES
+    .filter((category) => registered[category].length > 0 && byCategory[category].length === 0)
     .map((category) => CATEGORY_LABELS[category]);
 
   const hasOuter = byCategory.outer.length > 0;
@@ -209,8 +225,10 @@ export function drawOutfit({ items, weather, schedules, recentlyWorn, random = M
     message: buildMessage(context, missing, {
       outerPicked: Boolean(outer),
       outerUnavailable: !hasOuter,
+      allResting,
     }),
     missing,
+    allResting,
     context,
   };
 }

@@ -165,6 +165,110 @@ const draw = async (page) => {
   await context.close();
 }
 
+/* ---------- お休み中（洗濯中などの一時除外） ---------- */
+{
+  const { context, page, errors } = await open(24);
+
+  await page.click('[data-action="open-closet"]');
+  await page.waitForTimeout(1200);
+
+  const names = await page.evaluate(() =>
+    [...document.querySelectorAll('#content-tops [data-item-card] p')].map((p) => p.textContent));
+  ok('切り替えボタンが各カードにある',
+    (await page.locator('#content-tops [data-action="toggle-availability"]').count()) === 3);
+
+  // 1着をお休みにする
+  const target = await page.evaluate(() => {
+    const card = document.querySelector('#content-tops [data-item-card]');
+    return card.querySelector('p').textContent;
+  });
+  await page.click('#content-tops [data-action="toggle-availability"]');
+  await page.waitForTimeout(1200);
+
+  const restingLabel = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('#content-tops [data-action="toggle-availability"]')];
+    return buttons.filter((b) => b.getAttribute('aria-pressed') === 'true').length;
+  });
+  ok('お休み中の表示に切り替わる', restingLabel === 1, `${restingLabel}着`);
+
+  // お休み中は後ろに回る
+  const order = await page.evaluate(() =>
+    [...document.querySelectorAll('#content-tops [data-action="toggle-availability"]')]
+      .map((b) => b.getAttribute('aria-pressed')));
+  ok('お休み中は一覧の後ろにまとまる', order[order.length - 1] === 'true', order.join(','));
+
+  // ガチャから外れる
+  await page.click('#closet-screen [data-action="back"]');
+  await page.waitForTimeout(300);
+  await draw(page);
+  let appeared = 0;
+  for (let i = 0; i < 15; i += 1) {
+    await page.click('[data-action="regacha"]');
+    await page.waitForTimeout(450);
+    if ((await page.textContent('#result-items')).includes(target)) appeared += 1;
+  }
+  ok('お休み中はコーデに出てこない', appeared === 0, `15回中 ${appeared}回 (${target})`);
+
+  // 戻せる
+  await page.click('#result-screen [data-action="back"]');
+  await page.waitForTimeout(300);
+  await page.click('[data-action="open-closet"]');
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => {
+    const back = [...document.querySelectorAll('#content-tops [data-action="toggle-availability"]')]
+      .find((b) => b.getAttribute('aria-pressed') === 'true');
+    back.click();
+  });
+  await page.waitForTimeout(1200);
+  const restored = await page.evaluate(() =>
+    [...document.querySelectorAll('#content-tops [data-action="toggle-availability"]')]
+      .every((b) => b.getAttribute('aria-pressed') === 'false'));
+  ok('お休みから戻せる', restored);
+
+  // リロードしても状態が残る
+  await page.click('#content-tops [data-action="toggle-availability"]');
+  await page.waitForTimeout(1200);
+  await page.reload();
+  await page.waitForTimeout(2800);
+  await page.click('[data-action="open-closet"]');
+  await page.waitForTimeout(1500);
+  const persisted = await page.evaluate(() =>
+    [...document.querySelectorAll('#content-tops [data-action="toggle-availability"]')]
+      .filter((b) => b.getAttribute('aria-pressed') === 'true').length);
+  ok('リロード後もお休み中が残る', persisted === 1, `${persisted}着`);
+
+  ok('JSエラーが発生していない（お休み機能）', errors.length === 0, errors.slice(0, 2).join(' | '));
+  await context.close();
+}
+
+/* ---------- 全部お休みにした場合 ---------- */
+{
+  const { context, page } = await open(24);
+  await page.click('[data-action="open-closet"]');
+  await page.waitForTimeout(1200);
+
+  // トップスを全部お休みにする
+  for (;;) {
+    const remaining = await page.evaluate(() => {
+      const b = [...document.querySelectorAll('#content-tops [data-action="toggle-availability"]')]
+        .find((x) => x.getAttribute('aria-pressed') === 'false');
+      if (b) b.click();
+      return Boolean(b);
+    });
+    if (!remaining) break;
+    await page.waitForTimeout(900);
+  }
+
+  await page.click('#closet-screen [data-action="back"]');
+  await page.waitForTimeout(300);
+  await draw(page);
+  const message = await page.textContent('#result-message');
+  ok('全部お休みなら、未登録とは別の案内を出す',
+    message.includes('すべてお休み中') && !message.includes('登録されていません'),
+    message.trim());
+  await context.close();
+}
+
 console.log(results.join('\n'));
 const failed = results.filter((line) => line.startsWith('❌')).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

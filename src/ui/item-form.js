@@ -16,12 +16,13 @@ export const getEditingId = () => editingId;
 export const getPendingImage = () => pendingImage;
 export const clearPendingImage = () => { pendingImage = null; };
 
-function fill({ name, category, warmth, formality, rainSafe }) {
+function fill({ name, category, warmth, formality, rainSafe, available }) {
   $('capture-name').value = name ?? '';
   $('capture-category').value = category ?? 'tops';
   $('capture-warmth').value = String(warmth ?? 3);
   $('capture-formality').value = String(formality ?? 1);
   $('capture-rainsafe').checked = rainSafe !== false;
+  $('capture-available').checked = available !== false;
 }
 
 function showPreview({ imageUrl, colorClass }) {
@@ -70,6 +71,7 @@ export function readForm() {
     warmth: parseInt($('capture-warmth').value, 10),
     formality: parseInt($('capture-formality').value, 10),
     rainSafe: $('capture-rainsafe').checked,
+    available: $('capture-available').checked,
   };
 }
 

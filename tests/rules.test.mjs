@@ -54,6 +54,7 @@ const validItem = {
   warmth: 1,
   formality: 1,
   rainSafe: true,
+  available: true,
   createdAt: 1757600000000,
 };
 
@@ -108,6 +109,14 @@ await check('未知のフィールドが混ざれば拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad6'), { ...validItem, isAdmin: true })));
 await check('他人の領域を指す imagePath は拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad7'), { ...validItem, imagePath: `users/${BOB}/closet/x.jpg` })));
+await check('available が無い古い形式のアイテムも通る', assertSucceeds(setDoc(
+  itemRef(alice, ALICE, 'legacy-item'),
+  { category: 'tops', name: '古いアイテム', imageUrl: null, imagePath: null,
+    colorClass: 'bg-gray-100', warmth: 3, formality: 1, rainSafe: true,
+    createdAt: 1757600000000 }
+)));
+await check('available が真偽値でなければ拒否',
+  assertFails(setDoc(itemRef(alice, ALICE, 'bad9'), { ...validItem, available: 'yes' })));
 await check('rainSafe が真偽値でなければ拒否',
   assertFails(setDoc(itemRef(alice, ALICE, 'bad8'), { ...validItem, rainSafe: 'yes' })));
 await check('アウターを含まないコーデ記録も許容', assertSucceeds(setDoc(

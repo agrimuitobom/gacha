@@ -33,13 +33,15 @@ service cloud.firestore {
     function validClosetItem(data) {
       return data.keys().hasOnly([
                'category', 'name', 'imageUrl', 'imagePath', 'colorClass',
-               'warmth', 'formality', 'rainSafe', 'createdAt'
+               'warmth', 'formality', 'rainSafe', 'available', 'createdAt'
              ])
              && data.category in ['outer', 'tops', 'bottoms', 'shoes']
              && isText(data.name, 40)
              && isInt(data.warmth, 1, 5)
              && isInt(data.formality, 1, 3)
              && data.rainSafe is bool
+             // この項目が無い時期のアイテムも通るよう、既定値を与えてから検証する
+             && data.get('available', true) is bool
              && isTimestampMs(data.createdAt)
              && (data.imageUrl == null || data.imageUrl is string)
              // 画像は必ず自分の領域を指していること

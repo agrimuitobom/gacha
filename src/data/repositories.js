@@ -7,6 +7,12 @@ import { CLOSET_ITEMS, SCHEDULES, OUTFITS, META } from './collections.js';
  * バックエンド（ローカル / Firebase）の違いはここより下に隠蔽されている。
  */
 
+/**
+ * 着られる状態か。
+ * この項目が無い時期に登録されたアイテムは、着られるものとして扱う。
+ */
+export const isAvailable = (item) => item.available !== false;
+
 export const closetRepo = {
   async list() {
     const backend = await getBackend();
@@ -33,6 +39,8 @@ export const closetRepo = {
       warmth: input.warmth,
       formality: input.formality,
       rainSafe: input.rainSafe !== false,
+      // 洗濯中などで一時的に着られない状態。削除せずに外せるようにする
+      available: input.available !== false,
       createdAt: Date.now(),
     };
     return backend.put(CLOSET_ITEMS, item);
@@ -54,7 +62,16 @@ export const closetRepo = {
       warmth: patch.warmth ?? existing.warmth,
       formality: patch.formality ?? existing.formality,
       rainSafe: patch.rainSafe !== undefined ? patch.rainSafe : existing.rainSafe,
+      available: patch.available !== undefined ? patch.available : isAvailable(existing),
     });
+  },
+
+  /** お休み中とふだん着を切り替える */
+  async toggleAvailability(id) {
+    const backend = await getBackend();
+    const existing = await backend.get(CLOSET_ITEMS, id);
+    if (!existing) throw new Error(`アイテムが見つかりません: ${id}`);
+    return backend.put(CLOSET_ITEMS, { ...existing, available: !isAvailable(existing) });
   },
 
   async remove(id) {
