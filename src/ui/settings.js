@@ -63,7 +63,24 @@ export async function renderSettings() {
 
   const parts = [];
 
-  if (account.degraded) {
+  if (account.degraded && account.degradeKind === 'config') {
+    // 設定が原因のときは待っても直らない。原因コードまで出す。
+    // 「接続が戻ってから開き直してください」と案内すると、永久に待たせることになる。
+    parts.push(statusRow({
+      iconName: 'triangle-alert',
+      iconClass: 'bg-amber-100 text-amber-800',
+      title: 'オンライン同期を開始できませんでした',
+      description: account.degradeCode
+        ? `この端末には保存されているのでデータは残っています。Firebase の設定をご確認ください（${account.degradeCode}）。`
+        : 'この端末には保存されているのでデータは残っています。Firebase の設定をご確認ください。',
+    }));
+    if (account.degradeCode === 'auth/admin-restricted-operation') {
+      parts.push(warning(
+        'Firebase コンソールの Authentication → ログイン方法 で「匿名」を有効にしてください。'
+        + 'このアプリは匿名アカウントで開始し、あとから Google アカウントに紐づける作りです。'
+      ));
+    }
+  } else if (account.degraded) {
     parts.push(statusRow({
       iconName: 'wifi-off',
       iconClass: 'bg-amber-100 text-amber-800',
