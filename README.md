@@ -471,6 +471,27 @@ script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none' �
 
 > 独自の認証ドメインを使う場合は `frame-src` に、Cloud Functions を使う場合は `connect-src` に、それぞれ追記が必要です。
 
+#### Google ログインと CSP
+
+`script-src` に `https://apis.google.com` が入っています。**外しても画面上は何も変わらないので、外さないでください。**
+
+Firebase Auth は `signInWithPopup` / `linkWithPopup` を呼ぶと、ポップアップを開く**前に** `https://apis.google.com/js/api.js` を `<script>` として読み込み、それで作った iframe 経由でポップアップの結果を受け取ります（SDK に URL がハードコードされています）。
+
+`script-src 'self'` だけだとここで止まり、**ポップアップが開かないまま `auth/internal-error` になります**。画面には「連携できませんでした」としか出ないため、原因が分かりません。実際にこれで Google ログインが動いていませんでした。
+
+必要なのは次の2つです。
+
+| ディレクティブ | 必要な値 | 用途 |
+| --- | --- | --- |
+| `script-src` | `https://apis.google.com` | ポップアップの結果を受け取る仕組みの読み込み |
+| `frame-src` | `https://<authDomain>` | `https://<authDomain>/__/auth/iframe` |
+
+ポップアップ本体（`/__/auth/handler`）は別ウィンドウなので `frame-src` の対象外です。iframe とポップアップはどちらも別オリジンの文書なので、こちら側の `connect-src` には影響されません。
+
+`npm run test:csp` が、この CSP で `apis.google.com` を実際に読み込めること、`frame-src` に authDomain のオリジンがあること、そして **SDK が今もその URL を使っていること**（バージョンアップでホストが変わったら気づけるように）を確認します。
+
+`npm run check:env` は、`VITE_FIREBASE_AUTH_DOMAIN` が `firebase.json` の `frame-src` に載っているかを突き合わせます。authDomain を `web.app` のものに変えると frame-src に一致しなくなるため、デプロイ用ビルドを止めます。
+
 ## 構成
 
 ```

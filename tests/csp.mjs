@@ -138,6 +138,67 @@ ok('アプリ全体を操作してもCSP違反が発生しない', violations.le
   violations.slice(0, 3).join(' | '));
 ok('CSP下でもJSエラーが発生しない', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '));
 
+/* ---------- Google ログインが CSP に止められないか ----------
+ *
+ * Firebase Auth は signInWithPopup / linkWithPopup を呼ぶと、
+ * ポップアップを開く前に https://apis.google.com/js/api.js を
+ * <script> として読み込み、それで作った iframe 経由で結果を受け取る。
+ * script-src が 'self' だけだとここで止まり、ポップアップが出ないまま
+ * auth/internal-error になる（画面には「連携できませんでした」とだけ出る）。
+ *
+ * 外へは出さず、CSP が通すかどうかだけを見る。止められた場合は
+ * リクエスト自体が発生しないので、この route ハンドラは呼ばれない。
+ */
+const AUTH_SCRIPT = 'https://apis.google.com/js/api.js';
+
+// SDK が本当にこの URL を使っているかを先に確かめる。
+// バージョンが上がってホストが変われば、CSP も変える必要がある。
+{
+  const { glob } = await import('node:fs/promises');
+  const files = [];
+  for await (const file of glob('node_modules/@firebase/auth/dist/esm/*.js')) files.push(file);
+  const sources = await Promise.all(files.map((file) => readFile(file, 'utf8')));
+  ok('SDK の gapiScript が apis.google.com のままである',
+    sources.some((source) => source.includes(`gapiScript: '${AUTH_SCRIPT}'`)),
+    `${files.length} ファイルを検査`);
+}
+let gapiStubServed = false;
+await context.route('https://apis.google.com/**', (route) => {
+  gapiStubServed = true;
+  return route.fulfill({ status: 200, contentType: 'text/javascript', body: '/* stub */' });
+});
+
+const scriptViolations = [];
+await page.evaluate(() => {
+  window.__authCsp = [];
+  document.addEventListener('securitypolicyviolation', (event) => {
+    window.__authCsp.push(`${event.effectiveDirective} ← ${event.blockedURI}`);
+  });
+});
+
+const loaded = await page.evaluate((src) => new Promise((resolve) => {
+  const el = document.createElement('script');
+  el.src = src;
+  el.onload = () => resolve(true);
+  el.onerror = () => resolve(false);
+  document.head.appendChild(el);
+  setTimeout(() => resolve(false), 5000);
+}), AUTH_SCRIPT);
+
+scriptViolations.push(...(await page.evaluate(() => window.__authCsp || [])));
+
+ok('Google ログインが使う apis.google.com を script-src が許可している',
+  gapiStubServed && loaded,
+  scriptViolations.join(' | ') || (gapiStubServed ? '' : 'リクエストが発生しなかった＝CSP が遮断'));
+ok('apis.google.com で CSP 違反が出ない',
+  !scriptViolations.some((v) => v.includes('apis.google.com')),
+  scriptViolations.join(' | '));
+
+// ポップアップの結果を受け取る iframe は https://<authDomain>/__/auth/iframe に出る
+ok('認証用 iframe のオリジンが frame-src にある',
+  /frame-src[^;]*firebaseapp\.com/.test(sent['content-security-policy'] || ''),
+  (sent['content-security-policy'] || '').match(/frame-src[^;]*/)?.[0] || '');
+
 /* 期待どおり「違反として弾ける」ことも確認する（ポリシーが素通しでない証明） */
 const blockedInline = await page.evaluate(() => {
   const script = document.createElement('script');
