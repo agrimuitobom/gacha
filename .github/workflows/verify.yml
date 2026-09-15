@@ -54,6 +54,9 @@ jobs:
       - name: コントラスト比（WCAG AA）
         run: npm run test:contrast
 
+      - name: コントラスト比（横向き）
+        run: npm run test:contrast:landscape
+
       - name: 撮影画像の縮小・圧縮
         run: npm run test:image
 
@@ -65,6 +68,9 @@ jobs:
 
       - name: コーデ履歴と距離表示
         run: npm run test:history
+
+      - name: 横向きのレイアウト
+        run: npm run test:landscape
 
       - name: 設定画面とアカウント表示
         run: npm run test:settings

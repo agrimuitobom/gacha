@@ -4,6 +4,15 @@
 @source "../index.html";
 @source "./**/*.js";
 
+/*
+ * 高さが足りない画面（横向きのスマホなど）向けのバリアント。
+ *
+ * sm: などの幅ベースの指定は、横画面では「幅が広い＝余裕がある」と判断して
+ * かえって要素を大きくしてしまう（実際 sm:w-52 でガチャボタンが 192→208px に
+ * 育ち、横画面で最も溢れていた）。制約が高さなら、高さで分岐する。
+ */
+@custom-variant short (@media (max-height: 600px));
+
 @theme {
   --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
   --animate-spin-slow: spin-slow 1.5s linear infinite;
