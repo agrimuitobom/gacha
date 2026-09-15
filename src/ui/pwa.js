@@ -60,11 +60,11 @@ function shouldOffer() {
 function banner({ message, actionLabel, action }) {
   return h('div', {
     id: 'install-banner',
-    class: 'w-full mb-2 bg-white/95 backdrop-blur border border-pink-200 rounded-2xl shadow-lg p-3 flex items-center gap-3 animate-fade-in',
+    class: 'w-full mb-2 short:mb-1 bg-white/95 backdrop-blur border border-pink-200 rounded-2xl shadow-lg p-3 short:p-1.5 flex items-center gap-3 short:gap-2 animate-fade-in',
     role: 'region',
     'aria-label': 'ホーム画面への追加',
   },
-    h('span', { class: 'w-9 h-9 shrink-0 bg-pink-100 text-pink-700 rounded-full flex items-center justify-center' },
+    h('span', { class: 'w-9 h-9 shrink-0 bg-pink-100 text-pink-700 rounded-full flex items-center justify-center short:hidden' },
       icon('sparkles', 'w-5 h-5')
     ),
     h('p', { class: 'flex-1 min-w-0 text-xs text-gray-800 font-medium leading-relaxed', text: message }),
