@@ -12,10 +12,10 @@ import { toDateKey, fromDateKey } from './domain/dates.js';
 import { initScreens, navigateTo, navigateBack, currentScreen, onScreenEnter } from './ui/screens.js';
 import { showToast } from './ui/toast.js';
 import { loadWeather, renderWeather, refreshWeatherIfStale } from './ui/weather-widget.js';
+import { updateFindShopsLinks } from './ui/find-shops.js';
 import { refreshHomeWidget } from './ui/home.js';
 import { renderCloset, switchTab, handleTabKeydown } from './ui/closet.js';
 import { renderResult } from './ui/result.js';
-import { renderShops, locateShops } from './ui/shop.js';
 import { renderSettings, linkAccount, signOutAccount } from './ui/settings.js';
 import {
   renderCalendar, renderSchedules, addScheduleInputRow, resetScheduleInputRows,
@@ -32,7 +32,7 @@ import {
 } from './ui/pwa.js';
 
 const SCREENS = [
-  'home-screen', 'result-screen', 'closet-screen', 'shop-screen',
+  'home-screen', 'result-screen', 'closet-screen',
   'camera-screen', 'item-form-screen', 'calendar-screen', 'settings-screen',
 ];
 
@@ -246,17 +246,14 @@ const actions = {
     resetScheduleInputRows();
     await Promise.all([renderCalendar(), renderSchedules(), renderOutfitHistory()]);
   },
-  'refresh-weather': () => loadWeather(true),
+  // 現在地が取れたら「服屋を探す」の地図の中心もそこに合わせる
+  'refresh-weather': () => loadWeather(true).then(updateFindShopsLinks),
   'start-gacha': (el) => startGacha(el),
   regacha: () => regacha(),
   'decide-outfit': () => decideOutfit(),
   'open-closet': async (el) => {
     navigateTo('closet-screen', { origin: el });
     await renderCloset();
-  },
-  'open-shop': async (el) => {
-    navigateTo('shop-screen', { origin: el });
-    await renderShops();
   },
   'open-camera': async (el) => {
     navigateTo('camera-screen', { origin: el });
@@ -317,7 +314,6 @@ const actions = {
   },
   'link-account': () => linkAccount(),
   'sign-out-account': () => signOutAccount(),
-  'locate-shops': () => locateShops(),
   'install-app': () => promptInstall(),
   'show-ios-install': () => showIosInstallHelp(),
   'dismiss-install': () => dismissInstall(),
@@ -426,7 +422,7 @@ async function init() {
   initLifecycle({ onDateChange: handleDateChange, onResume: handleResume });
 
   // 天気はデータ層と独立に取得できるので待たずに始める
-  loadWeather(false);
+  loadWeather(false).then(updateFindShopsLinks);
 
   try {
     const backend = await getBackend();

@@ -31,9 +31,7 @@
     "test:settings:firebase": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"npm run build:emulator && BACKEND=firebase node scripts/serve-and-run.js -- node tests/settings.mjs\"",
     "test:editing": "node scripts/serve-and-run.js -- node tests/editing.mjs",
     "test:history": "node scripts/serve-and-run.js -- node tests/history.mjs",
-    "test:shop": "node tests/shop-photos.mjs",
-    "test:auth-degrade": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"npm run build:emulator && node scripts/serve-and-run.js -- node tests/auth-degrade.mjs\"",
-    "shop:photos": "node scripts/shop-photos.js"
+    "test:auth-degrade": "firebase emulators:exec --project demo-gacha --only auth,firestore,storage \"npm run build:emulator && node scripts/serve-and-run.js -- node tests/auth-degrade.mjs\""
   },
   "dependencies": {
     "firebase": "^12.19.0",

@@ -99,10 +99,12 @@
           <span class="text-xs font-bold text-gray-800">クローゼット</span>
         </button>
 
-        <button type="button" data-action="open-shop" class="flex flex-col items-center gap-2 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px]">
+        <!-- Google マップへの直リンク。現在地が分かっていれば main.js が href に中心を足す -->
+        <a data-find-shops href="https://www.google.com/maps/search/?api=1&amp;query=%E6%9C%8D%E5%B1%8B" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center gap-2 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px]">
           <span class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center" data-icon="shopping-bag" data-icon-class="w-6 h-6"></span>
           <span class="text-xs font-bold text-gray-800">服屋を探す</span>
-        </button>
+          <span class="sr-only">（Google マップ、新しいタブで開く）</span>
+        </a>
         </div>
       </div>
     </main>
@@ -122,15 +124,17 @@
 
         <div class="mt-2 border-t border-gray-200 pt-6">
           <h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <span data-icon="map-pin" data-icon-class="w-4 h-4"></span> このコーデに合う小物を探す
+            <span data-icon="map-pin" data-icon-class="w-4 h-4"></span> 買い足すなら
           </h3>
-          <button type="button" data-action="open-shop" class="w-full text-left bg-linear-to-r from-emerald-700 to-teal-700 p-4 rounded-2xl text-white flex justify-between items-center shadow-md active:scale-95 transition-transform">
+          <!-- 以前ここには「サコッシュバッグ / 近くの店舗で取扱中」と書かれていたが、
+               在庫を確かめる手段が無いまま取扱中と書いていたので削除した -->
+          <a data-find-shops href="https://www.google.com/maps/search/?api=1&amp;query=%E6%9C%8D%E5%B1%8B" target="_blank" rel="noopener noreferrer" class="w-full bg-linear-to-r from-emerald-700 to-teal-700 p-4 rounded-2xl text-white flex justify-between items-center shadow-md active:scale-95 transition-transform">
             <span>
-              <span class="font-bold block">サコッシュバッグ</span>
-              <span class="text-xs opacity-90 mt-1 block">近くの店舗で取扱中</span>
+              <span class="font-bold block">近くの服屋を探す</span>
+              <span class="text-xs opacity-90 mt-1 block">Google マップで検索します</span>
             </span>
-            <span data-icon="chevron-right" data-icon-class="w-5 h-5"></span>
-          </button>
+            <span data-icon="external-link" data-icon-class="w-5 h-5"></span>
+          </a>
         </div>
       </div>
 
@@ -167,19 +171,6 @@
         <ul id="content-bottoms" role="tabpanel" aria-labelledby="tab-bottoms" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
         <ul id="content-shoes" role="tabpanel" aria-labelledby="tab-shoes" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
       </div>
-    </section>
-
-    <!-- =========================================
-         ショップ情報画面 (Shop)
-         ========================================= -->
-    <section id="shop-screen" aria-labelledby="shop-title" class="absolute inset-0 bg-white z-50 flex flex-col animate-fade-in hidden">
-      <div class="p-4 flex items-center border-b border-gray-200">
-        <button type="button" data-action="back" aria-label="前の画面に戻る" class="w-11 h-11 -ml-2 flex items-center justify-center text-gray-600 active:bg-gray-100 rounded-full transition-colors" data-icon="chevron-left" data-icon-class="w-6 h-6"></button>
-        <h2 id="shop-title" data-screen-title tabindex="-1" class="text-lg font-bold mx-auto pr-8">周辺の服屋</h2>
-      </div>
-
-      <!-- 店舗一覧（src/data/shops.js から描画） -->
-      <ul id="shop-list" class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50 flex flex-col gap-4 list-none"></ul>
     </section>
 
     <!-- =========================================

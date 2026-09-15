@@ -108,125 +108,61 @@ async function open(temp, options = {}) {
   await context.close();
 }
 
-/* ---------- 店舗までの距離 ---------- */
+/* ---------- 服屋を探す（Google マップへの直リンク） ---------- */
 {
+  // ショップ画面は畳んだ。手で登録した2店舗も、営業時間が手入力で古くなっても
+  // 誰も気づかず、そこから計算する「営業中」バッジが自信を持って間違える作りだった。
+  // マップ側の情報のほうが正確なので、ホームから直接そこへ送る。
   const { context, page } = await open(20);
 
-  // 商品写真は public/shops 配下だけを使う。ストックフォトを取りに行っていたら記録される。
-  // data: や blob: は自前の画像なので対象外、自サイト以外の http(s) だけを見る。
-  const pageOrigin = new URL(BASE_URL).origin;
-  const externalImages = [];
-  page.on('request', (request) => {
-    if (request.resourceType() !== 'image') return;
-    const url = request.url();
-    if (!/^https?:/i.test(url)) return;
-    if (new URL(url).origin !== pageOrigin) externalImages.push(url);
-  });
+  const links = page.locator('[data-find-shops]');
+  ok('ホームと結果画面にリンクがある', (await links.count()) === 2, `${await links.count()} 個`);
 
-  await page.click('[data-action="open-shop"]');
-  await page.waitForTimeout(1200);
+  const home = links.first();
+  ok('ボタンではなくリンクである',
+    (await home.evaluate((el) => el.tagName)) === 'A',
+    await home.evaluate((el) => el.tagName));
+  ok('別タブで開く', (await home.getAttribute('target')) === '_blank');
+  ok('opener を渡さない', (await home.getAttribute('rel') || '').includes('noopener'));
 
-  const text = await page.textContent('#shop-list');
-  ok('座標が無いうちは距離を表示しない',
-    !/km 先|直線距離/.test(text), text.replace(/\s+/g, ' ').slice(0, 60));
-  ok('根拠のない「2.7 km 先」が消えている', !text.includes('2.7'));
-  ok('店舗情報そのものは表示される',
-    text.includes('minami') && text.includes('キャマラド'));
-
-  // 実在の店名の隣に架空の商品を並べない。
-  // 期待値は shops.js の宣言から導く（本物の商品を追加してもこの判定は正しいまま）
-  const { shopsForTest } = await import('../src/data/shops.js');
-  const empty = shopsForTest.filter((shop) => shop.items.length === 0);
-  const filled = shopsForTest.flatMap((shop) => shop.items);
-
-  ok('商品が未登録の店舗は「準備中」と表示する',
-    empty.length === 0 || text.includes('準備中'),
-    `未登録 ${empty.length}店舗`);
-  ok('登録済みの商品は宣言どおりの名前で出る',
-    filled.every((item) => text.includes(item.name)),
-    `登録 ${filled.length}件`);
-  ok('画面に出る価格は宣言されたものだけ',
-    (text.match(/¥[0-9,]+/g) || []).length ===
-      filled.filter((item) => typeof item.price === 'number').length,
-    text.match(/¥[0-9,]+/g)?.join(' ') || '(価格表示なし)');
-  ok('外部のストックフォトを読み込んでいない',
-    externalImages.length === 0, externalImages.slice(0, 2).join(' | '));
-
-  await context.close();
-}
-
-/* ---------- マップでの周辺検索 ---------- */
-{
-  const { context, page } = await open(20);
-  await page.click('[data-action="open-shop"]');
-  await page.waitForTimeout(1200);
-
-  // 載せている店舗は手で登録した数軒だけなので、ほかを探す導線が要る
-  const link = page.locator('[data-action="search-shops-on-maps"]');
-  ok('マップで探す導線がある', (await link.count()) === 1);
-  ok('別タブで開く', (await link.getAttribute('target')) === '_blank');
-  ok('opener を渡さない',
-    (await link.getAttribute('rel') || '').includes('noopener'));
-
-  const href = await link.getAttribute('href');
+  const href = await home.getAttribute('href');
   ok('Google マップを指している',
     href.startsWith('https://www.google.com/maps/search/'), href);
   ok('服屋を検索する', decodeURIComponent(href).includes('服屋'), decodeURIComponent(href));
-
-  // 現在地が分からないうちは中心を指定せず、マップ側の位置情報に任せる
   ok('現在地が無ければ中心を指定しない', !href.includes('@'), href);
 
-  // 現在地は、距離の表示にもマップ検索の中心にも効く。
-  // 以前は座標のある店舗が1つも無いと導線を出していなかったが、
-  // マップ検索の中心として使えるようになったので、常に出す。
-  ok('現在地の導線が出る',
-    (await page.locator('[data-action="locate-shops"]').count()) === 1);
+  // 押した瞬間にマップへ出る。間に画面を挟まない
+  ok('ショップ画面が残っていない',
+    (await page.locator('#shop-screen').count()) === 0);
+  ok('ショップ画面を開くアクションが残っていない',
+    (await page.locator('[data-action="open-shop"]').count()) === 0);
+
+  // 実在の店名の隣に在庫を騙る表示を置かない
+  const result = await page.textContent('#result-screen');
+  ok('サコッシュバッグの作り話が消えている', !result.includes('サコッシュ'));
+  ok('根拠のない「取扱中」が消えている', !result.includes('取扱中'));
 
   await context.close();
 }
 
-/* ---------- 現在地が分かったあと ---------- */
+/* ---------- 現在地が分かったとき ---------- */
 {
   const { context, page } = await open(20, {
     geolocation: { latitude: 33.9189, longitude: 133.1818 },
     permissions: ['geolocation'],
   });
-  await page.click('[data-action="open-shop"]');
-  await page.waitForTimeout(1200);
-  await page.click('[data-action="locate-shops"]');
-  await page.waitForTimeout(1500);
 
-  const href = await page.locator('[data-action="search-shops-on-maps"]').getAttribute('href');
-  ok('現在地が地図の中心に入る', href.includes('@33.9189,133.1818'), href);
-  ok('現在地が分かれば導線を引っ込める',
-    (await page.locator('[data-action="locate-shops"]').count()) === 0);
+  // 天気の「現在地を使う」で位置が分かったら、地図の中心もそこに合わせる
+  await page.click('[data-action="refresh-weather"]');
+  await page.waitForTimeout(2000);
+
+  const hrefs = await page.locator('[data-find-shops]').evaluateAll(
+    (els) => els.map((el) => el.getAttribute('href')));
+  ok('両方のリンクに現在地が入る',
+    hrefs.length === 2 && hrefs.every((h) => h.includes('@33.9189,133.1818')),
+    hrefs.join(' | '));
 
   await context.close();
-}
-
-/* ---------- 距離計算そのものの正しさ ---------- */
-{
-  // 座標を入れれば距離が出る、その計算が正しいことを直接確かめる。
-  // 既知の測地値と突き合わせる（緯度1度 ≒ 111.2km、赤道の経度1度 ≒ 111.3km）
-  const { distanceKm, formatDistance } = await import('../src/domain/geo.js');
-
-  const lat1deg = distanceKm({ lat: 35, lon: 139 }, { lat: 36, lon: 139 });
-  ok('緯度1度の距離が既知の値と合う', Math.abs(lat1deg - 111.2) < 0.5, `${lat1deg.toFixed(2)} km`);
-
-  const lon1deg = distanceKm({ lat: 0, lon: 0 }, { lat: 0, lon: 1 });
-  ok('赤道上の経度1度が既知の値と合う', Math.abs(lon1deg - 111.3) < 0.5, `${lon1deg.toFixed(2)} km`);
-
-  // 高緯度では経度方向が cos(緯度) 倍に縮む
-  const at35 = distanceKm({ lat: 35, lon: 139 }, { lat: 35, lon: 140 });
-  const expected = 111.19 * Math.cos((35 * Math.PI) / 180);
-  ok('緯度による経度方向の縮みが反映される',
-    Math.abs(at35 - expected) < 0.5, `${at35.toFixed(2)} km / 理論値 ${expected.toFixed(2)} km`);
-
-  ok('同一地点は0になる', distanceKm({ lat: 35, lon: 139 }, { lat: 35, lon: 139 }) === 0);
-
-  ok('1km 未満はメートル表記になる',
-    formatDistance(0.45) === '450 m' && formatDistance(2.74) === '2.7 km',
-    `${formatDistance(0.45)} / ${formatDistance(2.74)}`);
 }
 
 console.log(results.join('\n'));
