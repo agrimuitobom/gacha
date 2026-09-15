@@ -110,15 +110,7 @@ const gacha = async (page) => {
   ok('雨天時に雨に弱い靴が選ばれにくい',
     (shoes['キャンバススニーカー'] || 0) < (shoes['黒レザーブーツ'] || 0), JSON.stringify(shoes));
 
-  /* 画面スタック */
-  const before = await page.textContent('#result-items');
-  await page.click('#result-screen [data-action="open-shop"]');
-  await page.waitForSelector('#shop-screen:not(.hidden)');
-  await page.click('#shop-screen [data-action="back"]');
-  await page.waitForTimeout(250);
-  const stillOnResult = !(await page.locator('#result-screen').getAttribute('class')).includes('hidden');
-  ok('結果→ショップ→戻るで結果が保持される',
-    stillOnResult && (await page.textContent('#result-items')) === before);
+
 
   /* コーデ決定 */
   await page.click('[data-action="decide-outfit"]');
@@ -194,7 +186,7 @@ const gacha = async (page) => {
 
   // 非表示画面が支援技術から隠れているか
   const hiddenInert = await page.evaluate(() =>
-    ['result-screen', 'closet-screen', 'shop-screen', 'calendar-screen', 'camera-screen']
+    ['result-screen', 'closet-screen', 'calendar-screen', 'camera-screen', 'settings-screen']
       .every((id) => document.getElementById(id).hasAttribute('inert')));
   ok('非表示画面が inert になっている', hiddenInert);
 
@@ -218,6 +210,20 @@ const gacha = async (page) => {
     tabState.active === 'tab-bottoms' && tabState.selected === 'true' && tabState.panelShown,
     JSON.stringify(tabState));
 
+  // 2階層スタックして戻ったとき、下の画面が保たれているか。
+  // 以前は 結果→ショップ→戻る で見ていたが、ショップ画面を畳んで
+  // 結果画面から進める先が無くなったため、クローゼット→カメラで見る
+  const beforeCloset = await page.textContent('#content-tops');
+  await page.click('#closet-screen [data-action="open-camera"]');
+  await page.waitForSelector('#camera-screen:not(.hidden)');
+  await page.waitForTimeout(400);
+  await page.click('#camera-screen [data-action="close-camera"]');
+  await page.waitForTimeout(500);
+  const stillOnCloset = !(await page.locator('#closet-screen').getAttribute('class')).includes('hidden');
+  ok('クローゼット→カメラ→戻るでクローゼットが保たれる',
+    stillOnCloset && (await page.textContent('#content-tops')) === beforeCloset,
+    stillOnCloset ? '' : 'クローゼットに戻っていない');
+
   // 戻ると、開いたボタンへフォーカスが返るか
   await page.click('#closet-screen [data-action="back"]');
   await page.waitForTimeout(400);
@@ -225,12 +231,12 @@ const gacha = async (page) => {
     (await page.evaluate(() => document.activeElement?.dataset?.action)) === 'open-closet');
 
   // Escape で戻れるか
-  await page.click('[data-action="open-shop"]');
+  await page.click('[data-action="open-settings"]');
   await page.waitForTimeout(400);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(400);
   ok('Escape で前の画面に戻れる',
-    (await page.locator('#shop-screen').getAttribute('class')).includes('hidden'));
+    (await page.locator('#settings-screen').getAttribute('class')).includes('hidden'));
 
   // タップ対象の大きさ（44px 以上）
   await page.click('[data-action="open-calendar"]');

@@ -185,7 +185,6 @@ const AUDIT = `(() => {
 const screens = [
   { name: 'ホーム', open: null },
   { name: '提案結果', open: '#gacha-btn', wait: '#result-screen:not(.hidden)' },
-  { name: 'ショップ', open: '#result-screen [data-action="open-shop"]', wait: '#shop-screen:not(.hidden)' },
   { name: 'クローゼット', open: null, custom: true },
   { name: 'カレンダー', open: null, custom: true },
 ];
@@ -218,11 +217,6 @@ await page.waitForSelector('#result-screen:not(.hidden)');
 await page.waitForTimeout(400);
 await audit('提案結果');
 
-await page.click('#result-screen [data-action="open-shop"]');
-await page.waitForTimeout(700);
-await audit('ショップ');
-await page.click('#shop-screen [data-action="back"]');
-await page.waitForTimeout(200);
 await page.click('#result-screen [data-action="back"]');
 await page.waitForTimeout(200);
 

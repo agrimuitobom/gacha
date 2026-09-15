@@ -118,10 +118,6 @@ ok('COOP が same-origin-allow-popups（Googleサインインを壊さない）'
 await page.click('#gacha-btn');
 await page.waitForSelector('#result-screen:not(.hidden)');
 await page.waitForTimeout(400);
-await page.click('#result-screen [data-action="open-shop"]');
-await page.waitForTimeout(600);
-await page.click('#shop-screen [data-action="back"]');
-await page.waitForTimeout(200);
 await page.click('#result-screen [data-action="back"]');
 await page.waitForTimeout(200);
 await page.click('[data-action="open-closet"]');
