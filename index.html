@@ -40,7 +40,7 @@
     <!-- =========================================
          トップ画面 (Home)
          ========================================= -->
-    <main id="home-screen" class="relative flex-1 w-full h-full p-5 flex flex-col justify-between items-center overflow-y-auto no-scrollbar">
+    <main id="home-screen" class="relative flex-1 w-full h-full p-5 short:p-2 flex flex-col justify-between items-center overflow-y-auto no-scrollbar">
       <h1 data-screen-title tabindex="-1" class="sr-only">コーデガチャ</h1>
 
       <!-- 設定への入口 -->
@@ -51,7 +51,7 @@
       <!-- 上部エリア -->
       <div class="w-full flex justify-between items-start z-10 gap-2">
         <!-- 【左上】カレンダー -->
-        <button type="button" data-action="open-calendar" class="flex-1 max-w-[48%] flex flex-col bg-white p-2.5 rounded-2xl shadow-sm border border-gray-200 active:scale-95 transition-transform text-left min-h-[60px]">
+        <button type="button" data-action="open-calendar" class="flex-1 max-w-[48%] flex flex-col bg-white p-2.5 rounded-2xl shadow-sm border border-gray-200 active:scale-95 transition-transform text-left min-h-[60px] short:min-h-[46px]">
           <span class="flex items-center gap-1.5 text-rose-600 font-bold mb-0.5">
             <span data-icon="calendar" data-icon-class="w-4 h-4"></span>
             <span id="home-calendar-date-text" class="text-xs">--/--</span>
@@ -63,7 +63,7 @@
         </button>
 
         <!-- 【右上】天気予報 -->
-        <button type="button" data-action="refresh-weather" aria-label="天気を更新する" class="flex-1 max-w-[48%] flex items-center justify-between gap-2 bg-linear-to-br from-orange-50 to-orange-100 p-2.5 rounded-2xl shadow-sm border border-orange-200 active:scale-95 transition-transform text-left min-h-[60px]">
+        <button type="button" data-action="refresh-weather" aria-label="天気を更新する" class="flex-1 max-w-[48%] flex items-center justify-between gap-2 bg-linear-to-br from-orange-50 to-orange-100 p-2.5 rounded-2xl shadow-sm border border-orange-200 active:scale-95 transition-transform text-left min-h-[60px] short:min-h-[46px]">
           <span id="weather-icon-container" class="shrink-0 text-orange-500" data-icon="sun" data-icon-class="w-6 h-6"></span>
           <span class="flex flex-col items-end min-w-0 flex-1" aria-live="polite">
             <span id="weather-temp" class="text-lg font-black leading-none text-gray-900">--°</span>
@@ -73,17 +73,17 @@
       </div>
 
       <!-- 中央エリア（ガチャ） -->
-      <div class="my-auto py-2 flex flex-col items-center justify-center z-10">
-        <button type="button" id="gacha-btn" data-action="start-gacha" class="relative group flex items-center justify-center w-48 h-48 sm:w-52 sm:h-52 rounded-full shadow-[0_20px_50px_rgba(236,72,153,0.3)] bg-linear-to-tr from-pink-600 via-purple-600 to-indigo-600 active:scale-95 transition-all duration-300 hover:scale-105 animate-pulse-slow">
+      <div class="my-auto py-2 short:py-0 flex flex-col items-center justify-center z-10">
+        <button type="button" id="gacha-btn" data-action="start-gacha" class="relative group flex items-center justify-center w-48 h-48 sm:w-52 sm:h-52 short:w-[88px] short:h-[88px] rounded-full shadow-[0_20px_50px_rgba(236,72,153,0.3)] bg-linear-to-tr from-pink-600 via-purple-600 to-indigo-600 active:scale-95 transition-all duration-300 hover:scale-105 animate-pulse-slow">
           <span class="absolute inset-2 rounded-full border-4 border-white/20"></span>
           <span class="flex flex-col items-center text-white">
-            <span id="icon-wand" class="mb-1 group-hover:rotate-12 transition-transform" data-icon="wand-2" data-icon-class="w-12 h-12"></span>
-            <span id="icon-spinner" class="mb-1 animate-spin hidden" data-icon="refresh-ccw" data-icon-class="w-10 h-10"></span>
-            <span id="gacha-text" class="text-xl font-black tracking-wider">コーデガチャ</span>
-            <span id="gacha-subtext" class="text-[11px] font-medium mt-0.5">TAP TO SPIN</span>
+            <span id="icon-wand" class="mb-1 short:mb-0 group-hover:rotate-12 transition-transform" data-icon="wand-2" data-icon-class="w-12 h-12 short:w-5 short:h-5"></span>
+            <span id="icon-spinner" class="mb-1 short:mb-0 animate-spin hidden" data-icon="refresh-ccw" data-icon-class="w-10 h-10 short:w-5 short:h-5"></span>
+            <span id="gacha-text" class="text-xl short:text-[10px] font-black tracking-wider">コーデガチャ</span>
+            <span id="gacha-subtext" class="text-[11px] font-medium mt-0.5 short:hidden">TAP TO SPIN</span>
           </span>
         </button>
-        <p class="mt-4 text-xs font-medium text-gray-600 text-center px-4 leading-relaxed">
+        <p class="mt-4 text-xs font-medium text-gray-600 text-center px-4 leading-relaxed short:hidden">
           今日の天気と予定に合わせて<br>あなたの服から自動提案します
         </p>
       </div>
@@ -94,14 +94,14 @@
         <div id="install-slot" aria-live="polite"></div>
 
         <div class="w-full flex justify-between items-end">
-        <button type="button" data-action="open-closet" class="flex flex-col items-center gap-2 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px]">
-          <span class="w-12 h-12 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center" data-icon="camera" data-icon-class="w-6 h-6"></span>
+        <button type="button" data-action="open-closet" class="flex flex-col items-center gap-2 short:gap-1 bg-white/90 backdrop-blur p-4 short:p-1.5 rounded-3xl short:rounded-2xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px] short:w-[96px]">
+          <span class="w-12 h-12 short:w-8 short:h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center" data-icon="camera" data-icon-class="w-6 h-6"></span>
           <span class="text-xs font-bold text-gray-800">クローゼット</span>
         </button>
 
         <!-- Google マップへの直リンク。現在地が分かっていれば main.js が href に中心を足す -->
-        <a data-find-shops href="https://www.google.com/maps/search/?api=1&amp;query=%E6%9C%8D%E5%B1%8B" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center gap-2 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px]">
-          <span class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center" data-icon="shopping-bag" data-icon-class="w-6 h-6"></span>
+        <a data-find-shops href="https://www.google.com/maps/search/?api=1&amp;query=%E6%9C%8D%E5%B1%8B" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center gap-2 short:gap-1 bg-white/90 backdrop-blur p-4 short:p-1.5 rounded-3xl short:rounded-2xl shadow-lg border border-gray-200 active:scale-95 transition-transform w-[110px] short:w-[96px]">
+          <span class="w-12 h-12 short:w-8 short:h-8 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center" data-icon="shopping-bag" data-icon-class="w-6 h-6"></span>
           <span class="text-xs font-bold text-gray-800">服屋を探す</span>
           <span class="sr-only">（Google マップ、新しいタブで開く）</span>
         </a>

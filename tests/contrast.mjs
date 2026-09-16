@@ -12,7 +12,11 @@ import { launchChromium } from './browser.mjs';
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:4173/';
 
 const browser = await launchChromium();
-const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 420, height: 880 } });
+// 既定は縦向き。VIEWPORT=landscape で横向き（short: が効く高さ）でも検査する
+const VIEWPORT = process.env.VIEWPORT === 'landscape'
+  ? { width: 844, height: 390 }
+  : { width: 420, height: 880 };
+const context = await browser.newContext({ reducedMotion: 'reduce', viewport: VIEWPORT });
 
 await context.route('**/api.open-meteo.com/**', (route) =>
   route.fulfill({
