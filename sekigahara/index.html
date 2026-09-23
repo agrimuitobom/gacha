@@ -1,0 +1,1126 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>関ヶ原 3D合戦図</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Shippori+Mincho+B1:wght@600;800&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #0b0e13;
+    --panel: rgba(11, 14, 19, 0.74);
+    --panel-edge: rgba(212, 176, 106, 0.28);
+    --paper: #f2ede1;
+    --muted: #b9b3a5;
+    --gold: #d4b06a;
+    --east: #dc4a34;
+    --west: #3a78dc;
+    --idle: #7d8ea6;
+    --serif: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+    --sans: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  }
+  html, body { height: 100%; margin: 0; background: var(--ink); color: var(--paper); overflow: hidden; }
+  body { font: 14px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; }
+
+  #app { position: fixed; inset: 0; overflow: hidden; background: var(--ink); }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #gl:active { cursor: grabbing; }
+  .vignette { position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%); }
+
+  /* ---- world labels ---- */
+  #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #labels.off .ulabel, #labels.off .place { display: none; }
+  .ulabel, .place, .callout { position: absolute; left: 0; top: 0; will-change: transform; white-space: nowrap; }
+  .ulabel { display: flex; align-items: center; gap: 5px; padding: 2px 7px 2px 5px;
+    background: rgba(8, 10, 14, .72); border-left: 3px solid var(--c, var(--west));
+    font-size: 12px; line-height: 1.35; border-radius: 2px; }
+  .ulabel b { font-weight: 700; letter-spacing: .02em; }
+  .ulabel .num { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ulabel .st { font-style: normal; font-size: 10.5px; padding: 0 5px; border-radius: 2px; background: #3b4250; color: #e8e3d6; }
+  .ulabel .st:empty { display: none; }
+  .ulabel .st[data-k="flip"] { background: var(--east); color: #fff; }
+  .ulabel .st[data-k="rout"] { background: #56504a; }
+  .ulabel .st[data-k="idle"] { background: #3d4a5e; }
+  .ulabel .st[data-k="charge"] { background: var(--gold); color: #1a1408; }
+  #labels.far .ulabel .num { display: none; }
+  #labels.far .ulabel { font-size: 11px; padding: 1px 6px 1px 4px; }
+  .place { font-family: var(--serif); font-weight: 600; font-size: 13px; color: #efe7d2;
+    text-shadow: 0 1px 3px #000, 0 0 10px rgba(0,0,0,.8); letter-spacing: .12em; }
+  .place.road { font-family: var(--sans); font-weight: 400; font-size: 11px; color: #d8cba6; letter-spacing: .08em; }
+  .callout { transform-origin: 50% 100%; }
+  .callout .box { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%);
+    background: rgba(12, 12, 10, .86); border: 1px solid var(--gold); color: var(--paper);
+    padding: 5px 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .callout .box small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+  .callout::before { content: ""; position: absolute; left: -1px; bottom: 0; width: 1px; height: 34px; background: var(--gold); }
+  .callout::after { content: ""; position: absolute; left: -4px; bottom: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+
+  /* ---- broadcast chrome ---- */
+  .topbar { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 12px; padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 0; pointer-events: none; }
+  .logo { display: flex; align-items: stretch; background: var(--panel); border: 1px solid var(--panel-edge); }
+  .logo-k { font-family: var(--serif); font-weight: 800; font-size: 22px; line-height: 1; padding: 8px 12px 7px;
+    background: var(--gold); color: #17120a; letter-spacing: .08em; }
+  .logo-s { padding: 6px 12px; font-size: 12px; line-height: 1.35; display: flex; flex-direction: column; justify-content: center; }
+  .logo-s span { color: var(--muted); font-size: 11px; }
+  .clock { text-align: right; background: var(--panel); border: 1px solid var(--panel-edge); padding: 6px 12px 7px; }
+  .clock .era { display: block; font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+  .clock strong { display: block; font-family: var(--serif); font-weight: 800; font-size: 20px; line-height: 1.25; letter-spacing: .04em; }
+  .clock .wx { display: inline-block; margin-top: 2px; font-size: 11px; color: #cfd7df; }
+
+  .forces { position: absolute; right: 18px; top: calc(100px + env(safe-area-inset-top, 0px)); width: 250px;
+    background: var(--panel); border: 1px solid var(--panel-edge); padding: 10px 12px 11px; pointer-events: none; }
+  .forces h3 { margin: 0 0 7px; font-size: 11px; font-weight: 700; color: var(--gold); letter-spacing: .14em; }
+  .bar { display: flex; height: 12px; background: #1b2029; overflow: hidden; }
+  .bar i { display: block; height: 100%; transition: width .6s ease; }
+  .bar .e { background: var(--east); }
+  .bar .w { background: var(--west); }
+  .bar .d { background: repeating-linear-gradient(135deg, #3f5a80 0 4px, #2b3a52 4px 8px); }
+  .legend { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 7px; margin-top: 8px; font-size: 12px; align-items: center; }
+  .legend .sw { width: 10px; height: 10px; }
+  .legend .v { font-variant-numeric: tabular-nums; text-align: right; }
+  .legend .sw.e { background: var(--east); } .legend .sw.w { background: var(--west); }
+  .legend .sw.d { background: repeating-linear-gradient(135deg, #3f5a80 0 3px, #2b3a52 3px 6px); }
+
+  .caption { position: absolute; left: 18px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); width: min(600px, calc(100% - 36px));
+    background: linear-gradient(90deg, rgba(8,10,14,.9), rgba(8,10,14,.72)); border-left: 4px solid var(--gold);
+    padding: 12px 18px 14px; pointer-events: none; }
+  .caption .no { font-size: 11px; color: var(--gold); letter-spacing: .24em; font-weight: 700; }
+  .caption h2 { margin: 2px 0 6px; font-family: var(--serif); font-weight: 800; font-size: 26px; line-height: 1.25; letter-spacing: .05em; text-wrap: balance; }
+  .caption p { margin: 0; font-size: 15px; line-height: 1.75; color: #e9e3d4; max-width: 38em; }
+  .caption.swap { animation: capIn .7s cubic-bezier(.2,.7,.2,1); }
+  @keyframes capIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .bigtitle { position: absolute; left: 0; right: 0; top: 36%; text-align: center; pointer-events: none; opacity: 0; }
+  .bigtitle .no { font-size: 13px; letter-spacing: .5em; color: var(--gold); font-weight: 700; }
+  .bigtitle h1 { margin: 6px 0 0; font-family: var(--serif); font-weight: 800; font-size: clamp(34px, 6.4vw, 76px); line-height: 1.15;
+    letter-spacing: .12em; text-shadow: 0 3px 24px rgba(0,0,0,.85), 0 1px 2px #000; }
+  .bigtitle .rule { width: 0; height: 2px; margin: 14px auto 0; background: var(--gold); }
+  .bigtitle.show { animation: bigT 3.2s ease forwards; }
+  .bigtitle.show .rule { animation: rule 3.2s ease forwards; }
+  @keyframes bigT { 0% { opacity: 0; transform: scale(1.06); letter-spacing: .3em; } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes rule { 0% { width: 0; } 30% { width: 220px; } 100% { width: 220px; } }
+
+  .controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(0deg, rgba(6,8,11,.92) 30%, rgba(6,8,11,0)); display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn { height: 34px; min-width: 34px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); border-radius: 3px; cursor: pointer; font-size: 13px; }
+  .btn:hover { background: rgba(255,255,255,.14); }
+  .btn:focus-visible, .seg:focus-visible, #scrub:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .btn svg { width: 16px; height: 16px; fill: currentColor; }
+  .btn.play { background: var(--gold); color: #17120a; border-color: var(--gold); min-width: 44px; }
+  .btn[aria-pressed="true"] { background: rgba(212,176,106,.22); border-color: var(--gold); }
+  .spacer { flex: 1; }
+  .tc { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); min-width: 84px; }
+  .speed { display: inline-flex; }
+  .speed .btn { border-radius: 0; margin-left: -1px; padding: 0 9px; }
+  .speed .btn:first-child { border-radius: 3px 0 0 3px; } .speed .btn:last-child { border-radius: 0 3px 3px 0; }
+  .timeline { position: relative; height: 26px; }
+  .segs { position: absolute; inset: 0; display: flex; gap: 2px; }
+  .seg { position: relative; height: 100%; background: rgba(255,255,255,.08); border: 0; padding: 0 6px; cursor: pointer; overflow: hidden;
+    font-size: 11px; color: #cfc8b8; text-align: left; white-space: nowrap; text-overflow: ellipsis; }
+  .seg .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(212,176,106,.35); pointer-events: none; }
+  .seg span { position: relative; }
+  .seg.cur { color: #fff; box-shadow: inset 0 -2px 0 var(--gold); }
+  #scrub { position: absolute; left: 0; right: 0; bottom: -8px; width: 100%; margin: 0; height: 12px; opacity: 0; cursor: pointer; }
+
+  .note { position: absolute; left: 18px; top: calc(76px + env(safe-area-inset-top, 0px)); font-size: 11px; color: rgba(242,237,225,.62);
+    pointer-events: none; max-width: 330px; line-height: 1.5; }
+
+  .intro { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px 16px;
+    background: radial-gradient(ellipse at 50% 60%, rgba(11,14,19,.35), rgba(11,14,19,.92)); text-align: center; }
+  .intro[hidden] { display: none !important; }
+  .intro .inner { max-width: 640px; }
+  .intro .kicker { font-size: 12px; letter-spacing: .4em; color: var(--gold); font-weight: 700; }
+  .intro h1 { margin: 10px 0 4px; font-family: var(--serif); font-weight: 800; font-size: clamp(56px, 13vw, 128px); line-height: 1; letter-spacing: .14em;
+    text-shadow: 0 6px 40px rgba(0,0,0,.9); }
+  .intro .sub { font-family: var(--serif); font-size: clamp(16px, 2.6vw, 22px); letter-spacing: .2em; }
+  .intro .meta { margin: 14px 0 22px; color: var(--muted); font-size: 13px; }
+  .intro .go { height: 48px; padding: 0 30px; font-size: 16px; font-weight: 700; letter-spacing: .1em; }
+  .intro .hint { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.9; }
+  kbd { font: 11px var(--sans); border: 1px solid rgba(255,255,255,.3); border-radius: 3px; padding: 0 5px; }
+
+  .err { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; font-size: 15px; }
+
+  @media (max-width: 760px) {
+    .forces { left: 16px; right: 16px; width: auto; top: calc(104px + env(safe-area-inset-top, 0px)); padding: 7px 10px 8px; }
+    .forces h3, .legend { display: none; }
+    .note { display: none; }
+    .topbar { padding-inline: 16px; }
+    .logo-k { font-size: 18px; padding: 7px 9px 6px; }
+    .logo-s { display: none; }
+    .clock strong { font-size: 16px; }
+    .caption { left: 16px; width: calc(100% - 32px); bottom: calc(136px + env(safe-area-inset-bottom, 0px)); padding: 9px 12px 10px; }
+    .caption h2 { font-size: 19px; margin-bottom: 3px; }
+    .caption p { font-size: 13px; line-height: 1.6; }
+    .controls { padding-inline: 16px; }
+    .seg span { display: none; }
+    .tc { display: none; }
+    .ulabel .num { display: none; }
+  }
+  @media (max-height: 520px) {
+    .caption p { display: none; }
+    .forces { display: none; }
+    .caption { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .caption.swap, .bigtitle.show, .bigtitle.show .rule { animation-duration: .01s; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl" aria-label="関ヶ原の地形と両軍の布陣を示す3D画面"></canvas>
+  <div class="vignette"></div>
+  <div id="labels"></div>
+
+  <header class="topbar">
+    <div class="logo"><div class="logo-k">関ヶ原</div><div class="logo-s">天下分け目の合戦<span>3D俯瞰合戦図</span></div></div>
+    <div class="clock"><span class="era">慶長5年（1600年）</span><strong id="clock">9月15日 未明</strong><span class="wx" id="wx">雨</span></div>
+  </header>
+
+  <aside class="forces" aria-label="兵力">
+    <h3>兵力（通説）</h3>
+    <div class="bar"><i class="e" id="barE"></i><i class="w" id="barW"></i><i class="d" id="barD"></i></div>
+    <div class="legend">
+      <span class="sw e"></span><span>東軍</span><span class="v" id="numE">0</span>
+      <span class="sw w"></span><span>西軍（戦う）</span><span class="v" id="numW">0</span>
+      <span class="sw d"></span><span>西軍（動かない）</span><span class="v" id="numD">0</span>
+    </div>
+  </aside>
+  <p class="note">兵数・布陣位置・時刻は通説にもとづく目安です（諸説あり）。地形は高さを強調した模式図です。</p>
+
+  <div class="bigtitle" id="big"><div class="no" id="bigNo"></div><h1 id="bigT"></h1><div class="rule"></div></div>
+
+  <section class="caption" id="cap" aria-live="polite">
+    <div class="no" id="capNo"></div>
+    <h2 id="capT"></h2>
+    <p id="capP"></p>
+  </section>
+
+  <nav class="controls" aria-label="再生操作">
+    <div class="timeline">
+      <div class="segs" id="segs"></div>
+      <input id="scrub" type="range" min="0" max="100" step="0.01" value="0" aria-label="再生位置">
+    </div>
+    <div class="row">
+      <button class="btn" id="bPrev" title="前の場面（←）" aria-label="前の場面"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="btn play" id="bPlay" title="再生／一時停止（スペース）" aria-label="再生"><svg viewBox="0 0 24 24" id="icoPlay"><path d="M7 4v16l13-8z"/></svg></button>
+      <button class="btn" id="bNext" title="次の場面（→）" aria-label="次の場面"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <span class="tc" id="tc">0:00 / 0:00</span>
+      <span class="spacer"></span>
+      <span class="speed" role="group" aria-label="再生速度">
+        <button class="btn" data-sp="0.5" aria-pressed="false">0.5×</button>
+        <button class="btn" data-sp="1" aria-pressed="true">1×</button>
+        <button class="btn" data-sp="2" aria-pressed="false">2×</button>
+      </span>
+      <button class="btn" id="bLab" aria-pressed="true">名前</button>
+      <button class="btn" id="bFog" aria-pressed="true">霧</button>
+      <button class="btn" id="bCam" aria-pressed="false" title="オンにするとカメラが自動で動かなくなります">自由視点</button>
+      <button class="btn" id="bFull" title="全画面" aria-label="全画面"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>
+    </div>
+  </nav>
+
+  <div class="intro" id="intro">
+    <div class="inner">
+      <div class="kicker">慶長五年九月十五日</div>
+      <h1>関ヶ原</h1>
+      <div class="sub">天下分け目の合戦を、空から見る</div>
+      <div class="meta">1600年10月21日　美濃国 関ヶ原　／　約2分40秒・全11場面</div>
+      <button class="btn play go" id="bGo">▶ 上映をはじめる</button>
+      <div class="hint">ドラッグで視点を回転、ホイール・ピンチで拡大縮小<br><kbd>Space</kbd> 一時停止　<kbd>←</kbd><kbd>→</kbd> 場面の移動</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const app = document.getElementById('app');
+if (!window.THREE) { app.innerHTML = '<div class="err">3D表示用のライブラリを読み込めませんでした。ネットワーク接続を確認して再読み込みしてください。</div>'; return; }
+
+/* ============================================================
+   Timeline
+   ============================================================ */
+const D = [12, 16, 14, 14, 18, 12, 10, 16, 14, 16, 14];
+const S = []; let TOTAL = 0; for (const d of D) { S.push(TOTAL); TOTAL += d; }
+const C = (i, f = 0) => S[i] + f * D[i];
+
+const CHAPTERS = [
+  { no: '序章', t: '天下分け目の関ヶ原', clock: '9月14日 夜', wx: '雨',
+    p: '豊臣秀吉の死後、徳川家康（東軍）と石田三成ら（西軍）が対立した。美濃国・関ヶ原の小さな盆地に、両軍あわせて約15万の大軍が集まろうとしている。' },
+  { no: '第一幕', t: '西軍、関ヶ原へ先回り', clock: '9月15日 未明', wx: '雨',
+    p: '大垣城にいた石田三成らは、雨の夜に南宮山の南を回って関ヶ原へ移動。西側の山すそに陣を構え、東から来る敵を待ち受けた。松尾山の小早川秀秋、南宮山の毛利勢はすでに陣取っていた。' },
+  { no: '第二幕', t: '東軍、追って布陣', clock: '9月15日 早朝', wx: '霧',
+    p: '西軍の動きを知った家康は、中山道を西へ進んで関ヶ原に入る。福島正則・黒田長政らの先鋒が西軍の正面に並び、家康の本陣は桃配山に置かれた。南宮山の毛利勢には浅野・池田らが備えた。' },
+  { no: '第三幕', t: '霧の中の開戦', clock: '午前8時ごろ', wx: '濃い霧',
+    p: '盆地は深い霧に包まれていた。霧が薄れはじめたころ、井伊直政・松平忠吉の隊が宇喜多隊に向けて発砲。続いて福島正則隊が宇喜多隊に突入し、戦いが始まった。' },
+  { no: '第四幕', t: '一進一退の激戦', clock: '午前9時〜11時ごろ', wx: '霧が晴れる',
+    p: '黒田・細川らは笹尾山の石田隊へ、藤堂・京極は大谷隊へ攻めかかる。高い所に陣取った西軍はよく戦い、宇喜多隊が福島隊を押し返す場面もあった。一方、島津隊はほとんど動かなかった。' },
+  { no: '第五幕', t: '動かない南宮山', clock: '午前中', wx: '晴れ',
+    p: '東軍の背後をつける位置にいた南宮山の毛利秀元は、最後まで山を下りなかった。ふもとの吉川広家がひそかに家康と通じ、道をふさいでいたからである（「宰相殿の空弁当」の逸話）。' },
+  { no: '第六幕', t: '家康、本陣を前へ', clock: '午前11時ごろ', wx: '晴れ',
+    p: 'なかなか決着がつかないことにいらだった家康は、本陣を桃配山から陣場野へ進め、前線の近くで指揮をとった。' },
+  { no: '第七幕', t: '小早川秀秋の寝返り', clock: '正午ごろ', wx: '晴れ',
+    p: '松尾山の小早川秀秋（約1万5千）が西軍を裏切り、山を下って大谷吉継隊に襲いかかる。続いて脇坂・朽木・小川・赤座の4隊も寝返った。家康が鉄砲を撃ちかけて決断をせまった「問鉄砲」の話は有名だが、近年は疑問視されている。' },
+  { no: '第八幕', t: '西軍、総崩れ', clock: '午後1時〜2時ごろ', wx: '晴れ',
+    p: '側面をつかれた大谷隊は壊滅し、吉継は自害。小西隊・宇喜多隊も総崩れとなり、石田三成は伊吹山の方へ落ちのびた。' },
+  { no: '第九幕', t: '島津の退き口', clock: '午後2時ごろ', wx: '晴れ',
+    p: '敵に囲まれた島津義弘は、後ろではなく前方の敵中へ突撃。家康本陣の目の前をかすめ、伊勢街道を南へ抜けた。多くの犠牲を出しながらも、義弘は薩摩へ生きて帰った。' },
+  { no: '終幕', t: '決着、そして江戸幕府へ', clock: '9月15日 午後', wx: '晴れ',
+    p: '戦いはおよそ半日で東軍の勝利に終わった。家康は1603年に征夷大将軍となり、江戸幕府を開く。関ヶ原の戦いが「天下分け目の戦い」と呼ばれるのはこのためである。' },
+];
+
+/* ============================================================
+   Terrain
+   ============================================================ */
+const ss = (a, b, v) => { let t = (v - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function hash2(x, z) { const h = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return h - Math.floor(h); }
+function vnoise(x, z) {
+  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  const a = hash2(xi, zi), b = hash2(xi + 1, zi), c = hash2(xi, zi + 1), d = hash2(xi + 1, zi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, z) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < 5; i++) { s += a * vnoise(x * f, z * f); f *= 2.03; a *= 0.5; } return s; }
+
+// 1 unit ≒ 100 m, heights exaggerated for readability
+const MOUNTS = [
+  { n: '笹尾山', x: -14.5, z: -9, h: 1.7, r: 3.0 },
+  { n: '天満山', x: -12.5, z: 4, h: 1.3, r: 3.4 },
+  { n: '松尾山', x: -6, z: 25, h: 5.6, r: 5.2 },
+  { n: '南宮山', x: 38, z: 20, h: 8.6, r: 8 },
+  { n: '桃配山', x: 20, z: -1, h: 1.4, r: 2.8 },
+  { n: '', x: -15.5, z: 13, h: 1.1, r: 3 },
+  { n: '', x: -4, z: -11, h: 0.9, r: 2.2 },
+];
+function H(x, z) {
+  const n = fbm(x * 0.08 + 3.1, z * 0.08 - 1.7);
+  const r = fbm(x * 0.21, z * 0.21);
+  let h = 0;
+  h += 7.5 * ss(-16, -40, z) * (0.6 + 0.6 * n);
+  h += 6.5 * ss(-22, -46, x) * (0.6 + 0.6 * n);
+  const gapX = 8 + (z - 18) * 0.5;
+  h += 6.2 * ss(29, 46, z) * (0.55 + 0.7 * n) * (1 - 0.85 * Math.exp(-((x - gapX) ** 2) / 40));
+  h += 3.2 * ss(20, 60, x) * ss(-8, -28, z);
+  for (const m of MOUNTS) {
+    const d2 = (x - m.x) ** 2 + (z - m.z) ** 2;
+    h += m.h * Math.exp(-d2 / (m.r * m.r)) * (0.85 + 0.3 * r);
+  }
+  h += (r - 0.5) * 0.28 * (1 + h * 0.25);
+  h -= x * 0.004;
+  return h;
+}
+
+/* ============================================================
+   Renderer / scene
+   ============================================================ */
+const canvas = document.getElementById('gl');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); }
+catch (e) { app.innerHTML = '<div class="err">この端末・ブラウザでは3D表示（WebGL）が使えません。別のブラウザでお試しください。</div>'; return; }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a222c');
+scene.fog = new THREE.FogExp2('#1a222c', 0.01);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.3, 700);
+
+const hemi = new THREE.HemisphereLight('#cfd8e6', '#3a3326', 0.5);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight('#fff4e0', 0.8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -75, right: 75, top: 60, bottom: -60, near: 1, far: 300 });
+sun.shadow.bias = -0.0006;
+sun.target.position.set(15, 0, 5);
+scene.add(sun, sun.target);
+
+// --- ground mesh
+const TX0 = -80, TX1 = 120, TZ0 = -60, TZ1 = 80;
+{
+  const W = TX1 - TX0, Dp = TZ1 - TZ0, SX = 300, SZ = 210;
+  const g = new THREE.PlaneGeometry(W, Dp, SX, SZ);
+  g.rotateX(-Math.PI / 2);
+  g.translate((TX0 + TX1) / 2, 0, (TZ0 + TZ1) / 2);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, H(pos.getX(i), pos.getZ(i)));
+  g.computeVertexNormals();
+  const nrm = g.attributes.normal;
+  const col = new Float32Array(pos.count * 3);
+  const FIELD = ['#b39a57', '#a48d4f', '#8a8849', '#9f9458', '#b7a268', '#7f8346'].map(c => new THREE.Color(c));
+  const FOREST = [new THREE.Color('#2c4528'), new THREE.Color('#37552f'), new THREE.Color('#415f34')];
+  const AUTUMN = [new THREE.Color('#7a5a2a'), new THREE.Color('#8c4526'), new THREE.Color('#9a7a33')];
+  const ROCK = new THREE.Color('#5d5a4c');
+  const c = new THREE.Color(), f = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), ny = nrm.getY(i);
+    const wob = fbm(x * 0.3, z * 0.3);
+    const fx = x / 2.3 + wob * 0.6, fz = z / 1.7 + wob * 0.4;
+    f.copy(FIELD[Math.floor(hash2(Math.floor(fx), Math.floor(fz)) * FIELD.length)]);
+    const edge = Math.min(fx - Math.floor(fx), fz - Math.floor(fz));
+    if (edge < 0.07) f.multiplyScalar(0.82);
+    f.multiplyScalar(0.92 + 0.16 * wob);
+    const n = fbm(x * 0.35 + 9, z * 0.35 - 4);
+    c.copy(FOREST[Math.floor(n * 2.99)]);
+    const au = fbm(x * 0.6 - 20, z * 0.6 + 7);
+    if (au > 0.6) c.lerp(AUTUMN[Math.floor(hash2(Math.floor(x * 2), Math.floor(z * 2)) * 3)], ss(0.6, 0.72, au) * 0.7);
+    c.multiplyScalar(0.85 + 0.3 * wob);
+    if (ny < 0.72) c.lerp(ROCK, ss(0.72, 0.5, ny) * 0.6);
+    const m = clamp(ss(0.7, 1.9, h) + ss(0.97, 0.9, ny), 0, 1);
+    f.lerp(c, m);
+    col[i * 3] = f.r; col[i * 3 + 1] = f.g; col[i * 3 + 2] = f.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  mesh.receiveShadow = true; mesh.castShadow = true;
+  scene.add(mesh);
+}
+
+// --- draped ribbons (roads, river)
+function ribbon(pts2, width, color, lift, opacity = 1) {
+  const curve = new THREE.CatmullRomCurve3(pts2.map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal');
+  const L = curve.getLength(), N = Math.ceil(L * 2.5);
+  const pts = curve.getSpacedPoints(N);
+  const pos = new Float32Array((N + 1) * 6), idx = [];
+  for (let i = 0; i <= N; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N, i + 1)];
+    let tx = b.x - a.x, tz = b.z - a.z; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+    const p = pts[i], nx = -tz * width / 2, nz = tx * width / 2;
+    const y1 = H(p.x + nx, p.z + nz) + lift, y2 = H(p.x - nx, p.z - nz) + lift;
+    pos.set([p.x + nx, y1, p.z + nz, p.x - nx, y2, p.z - nz], i * 6);
+    if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx);
+  const m = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(g, m); scene.add(mesh); return mesh;
+}
+const NAKASENDO = [[-80, 13], [-50, 12], [-30, 12], [-18, 10], [-8, 6], [2, 3], [12, 4], [20, 5], [32, 6], [46, 6], [62, 8], [80, 9], [120, 10]];
+const HOKKOKU = [[2, 3], [-4, -6], [-9, -15], [-12, -25], [-15, -42], [-18, -60]];
+const ISE = [[2, 3], [6, 12], [9, 19], [14, 30], [19, 40], [23, 50], [28, 80]];
+const RIVER = [[-20, -60], [-19, -40], [-18, -20], [-17.3, -5], [-17, 5], [-18, 15], [-16.5, 30], [-14, 50], [-12, 80]];
+ribbon(RIVER, 0.55, '#5f8497', 0.07, 0.9);
+ribbon(NAKASENDO, 0.42, '#d9c796', 0.09);
+ribbon(HOKKOKU, 0.32, '#cdbb8a', 0.09);
+ribbon(ISE, 0.32, '#cdbb8a', 0.09);
+
+// --- villages
+{
+  const spots = [[2, 3, 30, 3.2], [17, 4.4, 14, 2.2], [46, 6.5, 22, 3], [-18, 11, 8, 1.6], [30, 36, 12, 2.4], [-1, -6, 6, 1.4]];
+  const total = spots.reduce((a, s) => a + s[2], 0);
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.24, 0.26), new THREE.MeshLambertMaterial({ color: '#4a3d30' }), total);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
+  let k = 0;
+  for (const [x, z, n, r] of spots) for (let i = 0; i < n; i++) {
+    const a = hash2(i, x) * Math.PI * 2, d = Math.sqrt(hash2(z, i)) * r;
+    const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d * 0.6;
+    e.set(0, hash2(i, i + x) * 0.6, 0); q.setFromEuler(e); p.set(px, H(px, pz) + 0.12, pz);
+    s.set(1 + hash2(px, pz) * 0.6, 1, 1);
+    im.setMatrixAt(k++, m4.compose(p, q, s));
+  }
+  im.castShadow = true; scene.add(im);
+}
+
+/* ============================================================
+   Units
+   ============================================================ */
+const COL = { E: new THREE.Color('#dc4a34'), W: new THREE.Color('#3a78dc'), D: new THREE.Color('#6c83a3'), R: new THREE.Color('#6b6660') };
+
+function route(all, t0, t1) {
+  const L = [0];
+  for (let i = 1; i < all.length; i++) L.push(L[i - 1] + Math.hypot(all[i][0] - all[i - 1][0], all[i][1] - all[i - 1][1]));
+  const tot = L[L.length - 1] || 1;
+  return all.map((p, i) => [t0 + (t1 - t0) * L[i] / tot, p[0], p[1]]);
+}
+function P(x, z, ...moves) {
+  const keys = [[-1, x, z]]; let cx = x, cz = z;
+  for (const [t0, t1, ...pts] of moves) {
+    keys.push(...route([[cx, cz], ...pts], t0, t1));
+    [cx, cz] = pts[pts.length - 1];
+  }
+  return keys;
+}
+const WR = [[54, 31], [26, 34], [10, 20], [3, 7]];
+const ER = [[64, 8], [46, 6], [32, 6], [20, 5], [11, 4], [4, 3]];
+const wm = (a, b, ...fin) => [C(1, a), C(1, b), ...WR, ...fin];
+const em = (i, ...fin) => [C(2, 0.02 + i * 0.035), C(2, 0.5 + i * 0.03), ...ER, ...fin];
+const FOREVER = 1e9;
+
+const UNITS = [
+  // ---- 西軍
+  { id: 'ishida', name: '石田三成', k: '石', n: 6900, side: 'W', appear: C(1, 0.02),
+    path: P(74, 12, wm(0.02, 0.5, [-8, -3], [-14, -8]), [C(8, 0.55), C(8, 0.95), [-17, -18], [-21, -34]]),
+    face: [-7, -9], frac: [[C(8, 0.55), 1], [C(8, 0.95), 0.35], [C(9, 0.3), 0]], rout: C(8, 0.55),
+    st: [[C(8, 0.55), '敗走', 'rout']] },
+  { id: 'shimazu', name: '島津義弘', k: '島', n: 1500, side: 'W', appear: C(1, 0.12),
+    path: P(74, 12, wm(0.12, 0.62, [-11.5, -2.5]), [C(9, 0.08), C(9, 0.9), [-6, 0.5], [-1, 2.5], [5, 5], [8, 13], [12, 24], [16, 34], [21, 46]]),
+    face: [-4, -2], frac: [[C(9, 0.1), 1], [C(9, 0.9), 0.12], [C(10, 0.2), 0]],
+    idle: [[C(3, 0.5), C(9, 0.05)]],
+    st: [[C(3, 0.5), '動かず', 'idle'], [C(9, 0.05), '敵中突破', 'charge'], [C(10, 0.2), '', '']] },
+  { id: 'konishi', name: '小西行長', k: '小', n: 4000, side: 'W', appear: C(1, 0.22),
+    path: P(74, 12, wm(0.22, 0.75, [-11, 2]), [C(8, 0.35), C(8, 0.9), [-22, 0], [-40, -10]]),
+    face: [-4, 2], frac: [[C(8, 0.3), 1], [C(8, 0.9), 0.3], [C(9, 0.2), 0]], rout: C(8, 0.35),
+    st: [[C(8, 0.35), '敗走', 'rout']] },
+  { id: 'ukita', name: '宇喜多秀家', k: '宇', n: 17000, side: 'W', appear: C(1, 0.3),
+    path: P(74, 12, wm(0.3, 0.92, [-12.5, 6.5]), [C(8, 0.4), C(8, 0.95), [-24, 8], [-44, 6]]),
+    face: [-5, 6], frac: [[C(8, 0.35), 1], [C(8, 0.95), 0.35], [C(9, 0.25), 0]], rout: C(8, 0.4),
+    st: [[C(8, 0.4), '敗走', 'rout']] },
+  { id: 'otani', name: '大谷吉継', k: '大', n: 4100, side: 'W', appear: 0,
+    path: P(-14, 12), face: [[-1, -7, 12], [C(7, 0.3), -8, 17]],
+    frac: [[C(7, 0.6), 1], [C(8, 0.25), 0.25], [C(8, 0.5), 0]], rout: C(8, 0.25),
+    st: [[C(8, 0.2), '壊滅・吉継自害', 'rout']] },
+  { id: 'wakisaka', name: '脇坂ら4隊', k: '脇', n: 4300, side: 'W', appear: 0, flip: C(7, 0.55),
+    path: P(-10, 17.5, [C(7, 0.6), C(7, 0.8), [-12.5, 15]], [C(8, 0.4), C(8, 0.9), [-15, 10]]),
+    face: [[-1, -4, 15], [C(7, 0.55), -14, 12]], idle: [[C(3, 0.3), C(7, 0.55)]],
+    st: [[C(3, 0.5), '様子見', 'idle'], [C(7, 0.55), '寝返り', 'flip'], [C(8, 0.6), '', '']] },
+  { id: 'kobaya', name: '小早川秀秋', k: '早', n: 15600, side: 'W', appear: 0, flip: C(7, 0.28),
+    path: P(-6, 25, [C(7, 0.32), C(7, 0.62), [-9, 19], [-11.5, 14.8]], [C(8, 0.4), C(8, 0.9), [-14, 9]]),
+    face: [[-1, -10, 15], [C(7, 0.28), -14, 12]], idle: [[C(3, 0.3), C(7, 0.28)]],
+    st: [[C(3, 0.5), '様子見', 'idle'], [C(7, 0.28), '寝返り', 'flip'], [C(8, 0.6), '', '']] },
+  { id: 'mori', name: '毛利秀元', k: '毛', n: 16000, side: 'W', appear: 0, path: P(37.5, 19), face: [24, 6], idle: [[C(3, 0.3), FOREVER]], st: [[C(3, 0.5), '動かず', 'idle']] },
+  { id: 'kikkawa', name: '吉川広家', k: '吉', n: 3000, side: 'W', appear: 0, path: P(33, 12.5), face: [24, 6], idle: [[C(3, 0.3), FOREVER]], st: [[C(3, 0.5), '動かず', 'idle']] },
+  { id: 'ankoku', name: '安国寺恵瓊', k: '安', n: 1800, side: 'W', appear: 0, path: P(41.5, 12.5), face: [30, 6], idle: [[C(3, 0.3), FOREVER]] },
+  { id: 'natsuka', name: '長束正家', k: '長', n: 1500, side: 'W', appear: 0, path: P(45, 15.5), face: [32, 6], idle: [[C(3, 0.3), FOREVER]] },
+  { id: 'chosokabe', name: '長宗我部盛親', k: '宗', n: 6600, side: 'W', appear: 0, path: P(47.5, 20), face: [34, 6], idle: [[C(3, 0.3), FOREVER]] },
+  // ---- 東軍
+  { id: 'ieyasu', name: '徳川家康', k: '徳', n: 30000, side: 'E', appear: C(2, 0.18), hq: true,
+    path: P(88, 7, [C(2, 0.18), C(2, 0.8), ...ER.slice(0, 4), [20, -1]], [C(6, 0.1), C(6, 0.8), [10, -2.5], [1, -3.5]]),
+    face: [-10, 2] },
+  { id: 'fukushima', name: '福島正則', k: '福', n: 6000, side: 'E', appear: C(2, 0.02),
+    path: P(88, 7, em(0, [-6, 6.2]), [C(3, 0.4), C(3, 0.6), [-8.4, 6.3]], [C(4, 0.45), C(4, 0.7), [-5, 6]], [C(6, 0.3), C(6, 0.8), [-8.4, 6.3]], [C(8, 0.4), C(8, 0.9), [-13, 6]]),
+    face: [-13, 6.5] },
+  { id: 'kuroda', name: '黒田長政', k: '黒', n: 5400, side: 'E', appear: C(2, 0.055),
+    path: P(88, 7, em(1, [-2, -5], [-7, -10]), [C(4, 0.1), C(4, 0.35), [-9.5, -9.6]], [C(8, 0.55), C(8, 0.95), [-13, -9.2]]), face: [-15, -8] },
+  { id: 'hosokawa', name: '細川忠興', k: '細', n: 5000, side: 'E', appear: C(2, 0.09),
+    path: P(88, 7, em(2, [-6, -6.5]), [C(4, 0.12), C(4, 0.37), [-9, -7]], [C(8, 0.55), C(8, 0.95), [-12.5, -6]]), face: [-15, -8] },
+  { id: 'kato', name: '加藤嘉明', k: '加', n: 3000, side: 'E', appear: C(2, 0.125),
+    path: P(88, 7, em(3, [-5.5, -3.5]), [C(4, 0.15), C(4, 0.4), [-8.5, -4.3]]), face: [-13, -5] },
+  { id: 'tanaka', name: '田中吉政', k: '田', n: 3000, side: 'E', appear: C(2, 0.16),
+    path: P(88, 7, em(4, [-2.5, -6]), [C(4, 0.15), C(4, 0.4), [-6.5, -6.8]]), face: [-14, -8] },
+  { id: 'tsutsui', name: '筒井定次', k: '筒', n: 2850, side: 'E', appear: C(2, 0.195),
+    path: P(88, 7, em(5, [-3.5, -1]), [C(4, 0.25), C(4, 0.5), [-7.5, 0.2]]), face: [-12, 1.5] },
+  { id: 'ii', name: '井伊直政', k: '井', n: 3600, side: 'E', appear: C(2, 0.23),
+    path: P(88, 7, em(6, [-4.5, 1.8]), [C(3, 0.12), C(3, 0.3), [-8, 4]], [C(9, 0.3), C(9, 0.8), [-2, 4.5], [5, 8], [9, 16]]),
+    face: [[-1, -12, 6], [C(9, 0.3), 14, 30]], st: [[C(9, 0.72), '負傷', 'rout'], [C(10, 0.4), '', '']] },
+  { id: 'matsudaira', name: '松平忠吉', k: '松', n: 3000, side: 'E', appear: C(2, 0.265),
+    path: P(88, 7, em(7, [-3, 3.6]), [C(3, 0.15), C(3, 0.33), [-6.8, 2.6]], [C(9, 0.35), C(9, 0.85), [0, 5], [7, 11]]),
+    face: [[-1, -12, 5], [C(9, 0.35), 14, 30]] },
+  { id: 'todo', name: '藤堂高虎', k: '藤', n: 2490, side: 'E', appear: C(2, 0.3),
+    path: P(88, 7, em(8, [-7.5, 11]), [C(4, 0.5), C(4, 0.75), [-10.2, 11.2]], [C(8, 0.2), C(8, 0.6), [-13, 11]]), face: [-15, 12] },
+  { id: 'kyogoku', name: '京極高知', k: '京', n: 3000, side: 'E', appear: C(2, 0.335),
+    path: P(88, 7, em(9, [-6, 13.4]), [C(4, 0.52), C(4, 0.77), [-9.6, 14]]), face: [-15, 12.5] },
+  { id: 'terazawa', name: '寺沢広高', k: '寺', n: 2400, side: 'E', appear: C(2, 0.37),
+    path: P(88, 7, em(10, [-3, 9]), [C(4, 0.3), C(4, 0.6), [-6.3, 8.8]]), face: [-12, 8] },
+  { id: 'honda', name: '本多忠勝', k: '本', n: 500, side: 'E', appear: C(2, 0.405),
+    path: P(88, 7, em(11, [0, 4]), [C(9, 0.35), C(9, 0.75), [5, 9], [8, 15]]), face: [[-1, -10, 3], [C(9, 0.35), 14, 30]] },
+  { id: 'asano', name: '浅野幸長', k: '浅', n: 6500, side: 'E', appear: C(2, 0.1),
+    path: P(88, 7, [C(2, 0.1), C(2, 0.45), [64, 8], [46, 6], [32, 6], [27, 8.5]]), face: [36, 18] },
+  { id: 'ikeda', name: '池田輝政', k: '池', n: 4500, side: 'E', appear: C(2, 0.06),
+    path: P(88, 7, [C(2, 0.06), C(2, 0.4), [64, 8], [46, 6], [31, 6.3]]), face: [37, 16] },
+  { id: 'yamauchi', name: '山内一豊', k: '山', n: 2000, side: 'E', appear: C(2, 0.14),
+    path: P(88, 7, [C(2, 0.14), C(2, 0.5), [64, 8], [46, 6], [32, 6], [23.5, 7.8]]), face: [35, 18] },
+];
+
+// soldier blocks
+let SOLDIERS = 0;
+for (const u of UNITS) {
+  u.blocks = clamp(Math.round(Math.sqrt(u.n) * 0.34), 5, 60);
+  u.b0 = SOLDIERS; SOLDIERS += u.blocks;
+  const n = u.blocks, colsL = Math.ceil(Math.sqrt(n * 3.2)), colsC = 3, sp = 0.38;
+  u.lay = [];
+  for (let i = 0; i < n; i++) {
+    const rL = Math.floor(i / colsL), cL = i % colsL, rowN = Math.min(colsL, n - rL * colsL);
+    const rC = Math.floor(i / colsC), cC = i % colsC;
+    u.lay.push({
+      lx: (cL - (rowN - 1) / 2) * sp + (hash2(i, u.n) - 0.5) * 0.1, lz: rL * sp * 0.9 + (hash2(u.n, i) - 0.5) * 0.1,
+      cx: (cC - 1) * sp * 0.8, cz: rC * sp * 0.75,
+      jx: hash2(i * 3.1, u.n) - 0.5, jz: hash2(u.n, i * 7.3) - 0.5, v: 0.86 + hash2(i, i * 1.7) * 0.22,
+    });
+  }
+  const dL = Math.ceil(n / colsL) * sp * 0.9, dC = Math.ceil(n / colsC) * sp * 0.75;
+  for (const l of u.lay) { l.lz -= dL / 2; l.cz -= dC / 2; }
+}
+const soldierMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.3, 0.22), new THREE.MeshLambertMaterial(), SOLDIERS);
+soldierMesh.castShadow = true;
+soldierMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+soldierMesh.setColorAt(0, COL.E);
+scene.add(soldierMesh);
+
+// banners (nobori) as sprites
+const texCache = {};
+function flagTex(k, side) {
+  const key = k + side; if (texCache[key]) return texCache[key];
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#231a10'; x.fillRect(6, 0, 4, 128);
+  x.fillStyle = side === 'E' ? '#d24530' : '#2f6ed2'; x.fillRect(10, 6, 46, 84);
+  x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(10, 6, 46, 5);
+  x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 2; x.strokeRect(13, 12, 40, 74);
+  x.fillStyle = '#fff'; x.font = 'bold 34px "Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif';
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(k, 33, 50);
+  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; texCache[key] = t; return t;
+}
+for (const u of UNITS) {
+  u.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: flagTex(u.k, u.side), transparent: true, depthWrite: false }));
+  u.sprite.center.set(0.12, 0); u.sprite.renderOrder = 3;
+  u.flagScale = 0.8 + 0.22 * Math.log10(u.n / 500);
+  scene.add(u.sprite);
+}
+
+function keyVal(keys, t, def = 1) {
+  if (!keys) return def;
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 0; i < keys.length - 1; i++) if (t < keys[i + 1][0]) return lerp(keys[i][1], keys[i + 1][1], (t - keys[i][0]) / (keys[i + 1][0] - keys[i][0]));
+  return keys[keys.length - 1][1];
+}
+function unitFrac(u, t) { if (t < u.appear) return 0; return keyVal(u.frac, t, 1); }
+function evalPath(k, t, out) {
+  const n = k.length;
+  let i = 0; while (i < n - 1 && t >= k[i + 1][0]) i++;
+  if (i < n - 1) {
+    const a = k[i], b = k[i + 1], dx = b[1] - a[1], dz = b[2] - a[2], l = Math.hypot(dx, dz);
+    if (l > 1e-6) { const u = (t - a[0]) / (b[0] - a[0]); out.x = a[1] + dx * u; out.z = a[2] + dz * u; out.dx = dx / l; out.dz = dz / l; out.m = 1; return out; }
+  }
+  out.x = k[i][1]; out.z = k[i][2]; out.m = 0; out.dx = 0; out.dz = 0;
+  for (let j = i - 1; j >= 0; j--) {
+    const a = k[j], b = k[j + 1], dx = b[1] - a[1], dz = b[2] - a[2], l = Math.hypot(dx, dz);
+    if (l > 1e-6) { out.dx = dx / l; out.dz = dz / l; out.m = 1 - ss(0, 1.6, t - b[0]); break; }
+  }
+  return out;
+}
+function faceAt(u, t) {
+  const f = u.face; if (typeof f[0] === 'number') return f;
+  let r = f[0]; for (const k of f) if (t >= k[0]) r = k; return [r[1], r[2]];
+}
+const inWin = (w, t) => !!w && w.some(([a, b]) => t >= a && t < b);
+const sideAt = (u, t) => (u.flip !== undefined && t >= u.flip) ? 'E' : u.side;
+function statusAt(u, t) { let s = null; if (u.st) for (const k of u.st) if (t >= k[0]) s = k; return s; }
+
+/* ============================================================
+   Arrows
+   ============================================================ */
+const ARROW_VS = `
+attribute float aU; attribute float aS; varying float vU; varying float vS;
+void main(){ vU=aU; vS=aS; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
+const ARROW_FS = `
+uniform vec3 uColor; uniform float uProg, uOp, uTime, uLen, uDash;
+varying float vU; varying float vS;
+void main(){
+  if (vU > uProg) discard;
+  float d = vU*uLen;
+  if (uDash > 0.5 && fract(d*0.9) > 0.55) discard;
+  float edge = smoothstep(0.55, 1.0, abs(vS));
+  float flow = fract(d*0.55 - abs(vS)*0.22 - uTime*0.9);
+  float chev = smoothstep(0.0, 0.12, flow) * smoothstep(0.45, 0.3, flow);
+  vec3 c = mix(uColor, vec3(1.0), edge*0.55 + chev*0.22);
+  float tail = smoothstep(0.0, 0.1, vU);
+  gl_FragColor = vec4(c, uOp*(0.72 + 0.22*chev)*tail);
+}`;
+const HEX = { E: '#ff5a3c', W: '#4a8cff', G: '#f0c860' };
+class Arrow {
+  constructor(a) {
+    this.a = a;
+    const curve = new THREE.CatmullRomCurve3(a.pts.map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal', 0.5);
+    this.len = curve.getLength();
+    const N = this.N = Math.max(30, Math.ceil(this.len * 3));
+    const pts = this.pts = curve.getSpacedPoints(N);
+    for (const p of pts) p.y = H(p.x, p.z) + 0.85;
+    for (let it = 0; it < 2; it++) for (let i = 1; i < N; i++) pts[i].y = Math.max(pts[i].y, (pts[i - 1].y + pts[i + 1].y) / 2);
+    const pos = new Float32Array((N + 1) * 6), au = new Float32Array((N + 1) * 2), as = new Float32Array((N + 1) * 2), idx = [];
+    for (let i = 0; i <= N; i++) {
+      const A = pts[Math.max(0, i - 1)], B = pts[Math.min(N, i + 1)];
+      let tx = B.x - A.x, tz = B.z - A.z; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+      const w = a.w * (0.4 + 0.6 * i / N) / 2, p = pts[i];
+      pos.set([p.x - tz * w, p.y, p.z + tx * w, p.x + tz * w, p.y, p.z - tx * w], i * 6);
+      au[i * 2] = au[i * 2 + 1] = i / N; as[i * 2] = -1; as[i * 2 + 1] = 1;
+      if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aU', new THREE.BufferAttribute(au, 1));
+    g.setAttribute('aS', new THREE.BufferAttribute(as, 1));
+    g.setIndex(idx);
+    this.mat = new THREE.ShaderMaterial({
+      vertexShader: ARROW_VS, fragmentShader: ARROW_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      uniforms: { uColor: { value: new THREE.Color(HEX[a.c]) }, uProg: { value: 0 }, uOp: { value: 0 }, uTime: { value: 0 }, uLen: { value: this.len }, uDash: { value: a.dash ? 1 : 0 } },
+    });
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.renderOrder = 5; this.mesh.frustumCulled = false;
+    const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+    this.hmat = new THREE.MeshBasicMaterial({ color: new THREE.Color(HEX[a.c]).lerp(new THREE.Color('#fff'), 0.15), transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    this.head = new THREE.Mesh(hg, this.hmat); this.head.renderOrder = 6; this.head.frustumCulled = false;
+    scene.add(this.mesh, this.head);
+  }
+  at(f) { const x = clamp(f, 0, 1) * this.N, i = Math.min(Math.floor(x), this.N - 1), u = x - i; return this.pts[i].clone().lerp(this.pts[i + 1], u); }
+  update(t, clock) {
+    const a = this.a, vis = t >= a.t0 && t < a.t2 + 1.5;
+    this.mesh.visible = this.head.visible = vis; if (!vis) return;
+    let prog = ss(0, 1, (t - a.t0) / (a.t1 - a.t0)) * (a.max || 1);
+    let op = ss(a.t0, a.t0 + 0.35, t) * (1 - ss(a.t2, a.t2 + 1.5, t));
+    if (a.max) op *= 0.65 + 0.35 * Math.sin(clock * 6);
+    const hl = Math.min(a.w * 2.1 / this.len, 0.3);
+    this.mat.uniforms.uProg.value = Math.max(0, prog - hl * 0.8);
+    this.mat.uniforms.uOp.value = op; this.mat.uniforms.uTime.value = clock;
+    this.hmat.opacity = op * 0.95;
+    const tip = this.at(prog), base = this.at(prog - hl);
+    let dx = tip.x - base.x, dz = tip.z - base.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    const hw = a.w * (0.4 + 0.6 * prog) * 1.05;
+    const p = this.head.geometry.attributes.position;
+    p.setXYZ(0, tip.x + dx * 0.1, tip.y, tip.z + dz * 0.1);
+    p.setXYZ(1, base.x - dz * hw, base.y, base.z + dx * hw);
+    p.setXYZ(2, base.x + dz * hw, base.y, base.z - dx * hw);
+    p.needsUpdate = true;
+  }
+}
+const A = (c, w, t0, t1, t2, pts, o = {}) => ({ c, w, t0, t1, t2, pts, ...o });
+const ARROWS = [
+  A('W', 1.1, C(1, 0.05), C(1, 0.9), C(2, 0.3), [[70, 13], [54, 31], [26, 34], [10, 20], [3, 7], [-6, 0]]),
+  A('E', 1.1, C(2, 0.05), C(2, 0.75), C(3, 0.2), [[84, 7], [64, 8], [46, 6], [32, 6], [20, 5], [8, 3.5], [0, 2]]),
+  A('E', 0.7, C(3, 0.18), C(3, 0.4), C(4, 0.4), [[-7.5, 3.8], [-9.5, 5], [-11.2, 6.2]]),
+  A('E', 1.0, C(3, 0.42), C(3, 0.62), C(4, 0.5), [[-5, 6.2], [-8.5, 6.4], [-11.4, 6.8]]),
+  A('E', 0.9, C(4, 0.04), C(4, 0.24), C(6, 1), [[-6.5, -10.5], [-10, -10], [-13.2, -8.8]]),
+  A('E', 0.9, C(4, 0.08), C(4, 0.28), C(6, 1), [[-6, -6.6], [-9.5, -7.4], [-13, -7.8]]),
+  A('E', 0.7, C(4, 0.12), C(4, 0.32), C(6, 1), [[-5.5, -3.8], [-9, -5], [-12.6, -6.4]]),
+  A('E', 0.7, C(4, 0.24), C(4, 0.44), C(6, 1), [[-4, -0.8], [-7.5, 0.6], [-10.2, 2]]),
+  A('W', 1.2, C(4, 0.42), C(4, 0.64), C(5, 0.5), [[-12, 6.6], [-8.5, 6.4], [-5.6, 6.1]]),
+  A('E', 0.8, C(4, 0.48), C(4, 0.68), C(6, 1), [[-7.8, 11], [-10.5, 11.4], [-13, 12]]),
+  A('E', 0.8, C(4, 0.52), C(4, 0.72), C(6, 1), [[-6.2, 13.5], [-9.5, 13.8], [-12.8, 12.8]]),
+  A('W', 1.4, C(5, 0.18), C(5, 0.55), C(5, 1), [[37, 18], [33, 14], [27, 10], [20, 6]], { max: 0.38 }),
+  A('E', 1.1, C(6, 0.08), C(6, 0.7), C(7, 0.3), [[20, -1], [12, -2.5], [2.5, -3.5]]),
+  A('G', 0.45, C(7, 0.04), C(7, 0.22), C(7, 0.42), [[-2, 9], [-3, 15], [-5.5, 22.5]], { dash: true }),
+  A('E', 1.8, C(7, 0.3), C(7, 0.52), C(8, 0.4), [[-6, 24], [-8.5, 19.5], [-11, 15.5], [-13.4, 13]]),
+  A('E', 1.0, C(7, 0.57), C(7, 0.72), C(8, 0.4), [[-10, 17.5], [-12, 15.5], [-13.8, 13.2]]),
+  A('W', 0.8, C(8, 0.35), C(8, 0.75), C(9, 0.3), [[-11, 2], [-22, 0], [-38, -8.5]]),
+  A('W', 1.0, C(8, 0.4), C(8, 0.8), C(9, 0.3), [[-12.5, 6.5], [-24, 8], [-42, 6]]),
+  A('W', 0.8, C(8, 0.55), C(8, 0.95), C(9, 0.4), [[-14, -8], [-17, -18], [-20.5, -32]]),
+  A('E', 1.1, C(8, 0.4), C(8, 0.8), C(9, 0.1), [[-7, 5], [-10, 3], [-13.5, 1]]),
+  A('W', 1.3, C(9, 0.08), C(9, 0.86), C(10, 0.5), [[-11.5, -2.5], [-6, 0.5], [-1, 2.5], [5, 5], [8, 13], [12, 24], [16, 34], [21, 46]]),
+  A('E', 0.8, C(9, 0.3), C(9, 0.8), C(10, 0.3), [[-8, 4], [-2, 4.5], [5, 8], [9, 16]]),
+  A('E', 0.6, C(9, 0.35), C(9, 0.75), C(10, 0.3), [[0, 4], [5, 9], [8, 15]]),
+].map(a => new Arrow(a));
+
+/* ============================================================
+   Effects: gunfire sparks, smoke, fog, rain, rings
+   ============================================================ */
+function softTex(size, stops) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const x = cv.getContext('2d'); const g = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  for (const [o, c] of stops) g.addColorStop(o, c);
+  x.fillStyle = g; x.fillRect(0, 0, size, size); return new THREE.CanvasTexture(cv);
+}
+const dotTex = softTex(64, [[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,.55)'], [1, 'rgba(255,255,255,0)']]);
+const fogTex = (() => {
+  const s = 256, cv = document.createElement('canvas'); cv.width = cv.height = s; const x = cv.getContext('2d');
+  for (let i = 0; i < 26; i++) {
+    const px = s / 2 + (hash2(i, 1) - 0.5) * s * 0.5, py = s / 2 + (hash2(1, i) - 0.5) * s * 0.3, r = s * (0.14 + hash2(i, i) * 0.22);
+    const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,255,255,.22)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, s, s);
+  }
+  return new THREE.CanvasTexture(cv);
+})();
+
+const PT_VS = `
+attribute float aA; attribute float aS; varying float vA; uniform float uPx;
+void main(){ vA=aA; vec4 mv = modelViewMatrix*vec4(position,1.0); gl_PointSize = aS*uPx/max(0.5,-mv.z); gl_Position = projectionMatrix*mv; }`;
+const PT_FS = `
+uniform vec3 uColor; uniform sampler2D uMap; varying float vA;
+void main(){ vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(uColor, t.a*vA); }`;
+function pointCloud(n, color, blending) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('aA', new THREE.BufferAttribute(new Float32Array(n), 1));
+  g.setAttribute('aS', new THREE.BufferAttribute(new Float32Array(n), 1));
+  const m = new THREE.ShaderMaterial({ vertexShader: PT_VS, fragmentShader: PT_FS, transparent: true, depthWrite: false, blending,
+    uniforms: { uColor: { value: new THREE.Color(color) }, uMap: { value: dotTex }, uPx: { value: 500 } } });
+  const p = new THREE.Points(g, m); p.frustumCulled = false; p.renderOrder = 7; scene.add(p); return p;
+}
+const sparks = pointCloud(320, '#ffcf7a', THREE.AdditiveBlending);
+const smoke = pointCloud(220, '#d9d6cf', THREE.NormalBlending);
+
+const K = (x, z, r, t0, t1, k = 1) => ({ x, z, r, t0, t1, k });
+const CLASHES = [
+  K(-9.8, 5.4, 1.4, C(3, 0.22), C(3, 0.5), 0.8),
+  K(-10, 6.4, 2.2, C(3, 0.5), C(8, 0.45), 1),
+  K(-11.2, -8.4, 2.2, C(4, 0.2), C(8, 0.6)),
+  K(-14.5, -8.8, 1.0, C(4, 0.1), C(8, 0.5), 0.6),
+  K(-10.2, -4.8, 1.6, C(4, 0.3), C(8, 0.5), 0.7),
+  K(-9, 1.2, 1.6, C(4, 0.35), C(8, 0.4), 0.8),
+  K(-11.8, 12.4, 1.8, C(4, 0.6), C(8, 0.3), 0.9),
+  K(-2, 9, 0.6, C(7, 0.02), C(7, 0.2), 0.8),
+  K(-12.5, 13.5, 2.4, C(7, 0.5), C(8, 0.3), 1.3),
+  K(-3.5, 2, 1.8, C(9, 0.18), C(9, 0.42)),
+  K(4, 5.5, 1.8, C(9, 0.38), C(9, 0.6)),
+  K(9, 15, 1.8, C(9, 0.55), C(9, 0.8), 0.8),
+];
+function updateParticles(t, clock) {
+  const act = [];
+  for (const c of CLASHES) { const k = c.k * ss(c.t0, c.t0 + 0.8, t) * (1 - ss(c.t1 - 0.8, c.t1, t)); if (k > 0.01) act.push([c, k]); }
+  for (const [pc, life, rise, spread, size, amax] of [[sparks, 0.45, 0.4, 1, 0.45, 1], [smoke, 3.2, 1.6, 1.25, 1.2, 0.2]]) {
+    const pa = pc.geometry.attributes.position, aa = pc.geometry.attributes.aA, sa = pc.geometry.attributes.aS, n = pa.count;
+    for (let i = 0; i < n; i++) {
+      if (!act.length) { aa.setX(i, 0); continue; }
+      const [c, k] = act[i % act.length];
+      const ph0 = clock / life + hash2(i, 3.3), cyc = Math.floor(ph0), ph = ph0 - cyc;
+      const rx = hash2(i, cyc) - 0.5, rz = hash2(cyc, i + 0.5) - 0.5;
+      const x = c.x + rx * c.r * 2 * spread, z = c.z + rz * c.r * 2 * spread;
+      const fire = hash2(i * 0.7, cyc * 1.3) < 0.35 + 0.4 * Math.min(1, k);
+      pa.setXYZ(i, x, H(x, z) + 0.35 + ph * rise, z);
+      const env = life < 1 ? (ph < 0.15 ? ph / 0.15 : 1 - (ph - 0.15) / 0.85) : Math.sin(ph * Math.PI);
+      aa.setX(i, fire ? env * amax * Math.min(1, k) : 0);
+      sa.setX(i, size * (life < 1 ? 1 - ph * 0.5 : 0.6 + ph * 1.2));
+    }
+    pa.needsUpdate = aa.needsUpdate = sa.needsUpdate = true;
+  }
+}
+
+const fogMat = new THREE.SpriteMaterial({ map: fogTex, color: '#dfe3e2', transparent: true, depthWrite: false, opacity: 0.5 });
+const fogSprites = [];
+for (let i = 0; i < 70; i++) {
+  const s = new THREE.Sprite(fogMat);
+  s.userData = { x: -40 + hash2(i, 5) * 100, z: -22 + hash2(5, i) * 58, y: 1.2 + hash2(i, 9) * 3.2, sp: 0.15 + hash2(9, i) * 0.25 };
+  const sc = 16 + hash2(i, 2) * 18; s.scale.set(sc, sc * 0.45, 1); s.renderOrder = 8;
+  scene.add(s); fogSprites.push(s);
+}
+const RAIN_N = 1400;
+const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RAIN_N * 6), 3));
+const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: '#b8c7d6', transparent: true, opacity: 0.3, depthWrite: false }));
+rain.frustumCulled = false; scene.add(rain);
+const rainSeed = Array.from({ length: RAIN_N }, (_, i) => [hash2(i, 1.1) - 0.5, hash2(2.2, i) - 0.5, hash2(i, 3.3)]);
+
+const RINGS = [
+  { x: 33, z: 12.5, r: 3.2, c: '#f0c860', t0: C(5, 0.1), t1: C(5, 1) },
+  { x: -6, z: 25, r: 4.2, c: '#ff5a3c', t0: C(7, 0.26), t1: C(7, 0.6) },
+  { x: -10, z: 17.5, r: 2.6, c: '#ff5a3c', t0: C(7, 0.54), t1: C(7, 0.8) },
+].map(r => {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 64), new THREE.MeshBasicMaterial({ color: r.c, transparent: true, depthTest: false, side: THREE.DoubleSide }));
+  m.rotation.x = -Math.PI / 2; m.position.set(r.x, H(r.x, r.z) + 0.4, r.z); m.renderOrder = 9; scene.add(m); r.m = m; return r;
+});
+
+/* ============================================================
+   DOM labels
+   ============================================================ */
+const labelsEl = document.getElementById('labels');
+function mk(cls, html) { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; labelsEl.appendChild(d); return d; }
+const PLACES = [
+  ['笹尾山', -14.5, -9, 2.6], ['天満山', -12.5, 4, 2.4], ['松尾山', -6, 25, 3.2], ['南宮山', 38, 20, 3.6], ['桃配山', 20, -1, 2.4],
+  ['陣場野', 1, -3.5, 2.2], ['伊吹山地', -4, -36, 1.5], ['関ヶ原宿', 3, 3.2, 0.6], ['大垣城方面 →', 74, 10, 1.2],
+  ['中山道', 36, 6.2, 0.4, 'road'], ['北国街道', -10.5, -18, 0.4, 'road'], ['伊勢街道', 16, 33, 0.4, 'road'], ['藤古川', -17.3, -6, 0.4, 'road'],
+].map(([n, x, z, dy, cls]) => ({ el: mk('place' + (cls ? ' ' + cls : ''), n), v: new THREE.Vector3(x, H(x, z) + dy, z) }));
+for (const u of UNITS) {
+  u.el = mk('ulabel', `<b>${u.name}</b><span class="num"></span><em class="st"></em>`);
+  u.elNum = u.el.querySelector('.num'); u.elSt = u.el.querySelector('.st'); u.cache = {};
+}
+const CALLOUTS = [
+  { x: 74, z: 12, y: 1, t0: C(1, 0), t1: C(1, 0.35), h: '大垣城を出発', s: '夜の雨の中を移動' },
+  { x: -8, z: 4, y: 1, t0: C(3, 0.14), t1: C(3, 0.5), h: '井伊・松平隊が発砲', s: '戦いの始まり' },
+  { x: -12.5, z: 6.5, y: 1, t0: C(4, 0.4), t1: C(4, 0.78), h: '宇喜多隊が押し返す', s: '西軍最大の1万7千' },
+  { x: -11.5, z: -2.5, y: 1, t0: C(4, 0.8), t1: C(5, 0.05), h: '島津隊は動かない', s: '' },
+  { x: 33, z: 12.5, y: 1.4, t0: C(5, 0.12), t1: C(5, 0.95), h: '吉川広家が道をふさぐ', s: 'ひそかに家康と内通' },
+  { x: 37.5, z: 19, y: 1.2, t0: C(5, 0.35), t1: C(5, 0.98), h: '毛利秀元は下山できず', s: '宰相殿の空弁当' },
+  { x: 1, z: -3.5, y: 1.4, t0: C(6, 0.55), t1: C(6, 1), h: '家康、陣場野へ', s: '前線まで約1km' },
+  { x: -6, z: 24.5, y: 1.6, t0: C(7, 0.04), t1: C(7, 0.27), h: '問鉄砲', s: '通説・近年は疑問視' },
+  { x: -6.5, z: 23.5, y: 1.6, t0: C(7, 0.28), t1: C(7, 0.58), h: '小早川秀秋、寝返り', s: '1万5千が大谷隊へ' },
+  { x: -10, z: 17.5, y: 1.2, t0: C(7, 0.58), t1: C(7, 0.85), h: '脇坂ら4隊も寝返り', s: '' },
+  { x: -14, z: 12, y: 1.2, t0: C(8, 0.12), t1: C(8, 0.42), h: '大谷隊、壊滅', s: '吉継は自害' },
+  { x: -20, z: -30, y: 1, t0: C(8, 0.75), t1: C(9, 0.1), h: '石田三成、伊吹山へ', s: 'のちに捕らえられる' },
+  { x: 1, z: -3.5, y: 1.4, t0: C(9, 0.3), t1: C(9, 0.55), h: '家康本陣の目前を突破', s: '' },
+  { x: 7, z: 10, y: 1.2, t0: C(9, 0.64), t1: C(9, 0.9), h: '井伊直政、負傷', s: '島津隊の銃撃による' },
+  { x: 20, z: 44, y: 1, t0: C(9, 0.86), t1: C(10, 0.3), h: '伊勢街道を南へ', s: '島津義弘、薩摩へ生還' },
+].map(c => { c.el = mk('callout', `<div class="box">${c.h}${c.s ? `<small>${c.s}</small>` : ''}</div>`); c.v = new THREE.Vector3(c.x, H(c.x, c.z) + c.y, c.z); return c; });
+
+/* ============================================================
+   Environment keyframes
+   ============================================================ */
+const colKeys = ks => ks.map(([t, c]) => [t, new THREE.Color(c)]);
+const ENV = {
+  fog: [[0, 1], [C(2, 1), 1], [C(3, 0.5), 0.75], [C(4, 0.2), 0.35], [C(4, 1), 0.1], [TOTAL, 0.06]],
+  rain: [[0, 1], [C(1, 0.8), 0.6], [C(2, 0.35), 0], [TOTAL, 0]],
+  sun: [[0, 0.22], [C(1, 1), 0.3], [C(2, 0.6), 0.45], [C(3, 0.6), 0.6], [C(4, 1), 0.95], [TOTAL, 0.85]],
+  hemi: [[0, 0.5], [C(1, 1), 0.52], [C(2, 0.6), 0.6], [C(4, 0), 0.72], [TOTAL, 0.66]],
+  az: [[0, 80], [C(2, 0), 80], [C(4, 0), 55], [C(7, 0), 10], [TOTAL, -55]],
+  el: [[0, 18], [C(2, 0), 18], [C(5, 0), 42], [C(7, 0), 50], [TOTAL, 26]],
+};
+const SKY = colKeys([[0, '#1a222c'], [C(1, 0.6), '#27313c'], [C(2, 0.3), '#6f7b80'], [C(3, 0), '#96a0a3'], [C(4, 1), '#a7bac9'], [C(7, 0.5), '#b2c2cc'], [C(9, 0), '#c1bfb0'], [TOTAL, '#c9aa86']]);
+const SUNC = colKeys([[0, '#7b8db3'], [C(2, 0.5), '#d6d0c2'], [C(5, 0), '#fff3dd'], [TOTAL, '#ffc98a']]);
+function colAt(keys, t, out) {
+  if (t <= keys[0][0]) return out.copy(keys[0][1]);
+  for (let i = 0; i < keys.length - 1; i++) if (t < keys[i + 1][0]) return out.copy(keys[i][1]).lerp(keys[i + 1][1], (t - keys[i][0]) / (keys[i + 1][0] - keys[i][0]));
+  return out.copy(keys[keys.length - 1][1]);
+}
+
+/* ============================================================
+   Camera path  [time, targetX, targetZ, dist, yaw°, pitch°]
+   ============================================================ */
+const CAM = [
+  [C(0, 0), 12, 8, 125, 28, 50], [C(0, 0.9), 6, 6, 98, 8, 42],
+  [C(1, 0.12), 42, 22, 72, 38, 36], [C(1, 0.5), 20, 25, 62, 12, 34], [C(1, 0.95), -6, 5, 56, -12, 40],
+  [C(2, 0.3), 32, 5, 70, 22, 32], [C(2, 0.9), 0, 3, 58, 10, 44],
+  [C(3, 0.3), -8, 4.5, 32, 32, 30], [C(3, 0.9), -8.5, 5, 27, 46, 27],
+  [C(4, 0.22), -9.5, -6.5, 30, 12, 34], [C(4, 0.6), -10, 9.5, 30, -12, 32], [C(4, 0.95), -8, 2, 46, 14, 48],
+  [C(5, 0.3), 36, 14, 36, -30, 30], [C(5, 0.9), 34, 13.5, 31, -50, 28],
+  [C(6, 0.5), 9, 0, 44, 6, 40],
+  [C(7, 0.18), -7, 19, 34, 128, 34], [C(7, 0.55), -9.5, 16, 31, 104, 36], [C(7, 0.95), -10.5, 13, 34, 62, 40],
+  [C(8, 0.4), -14, 4, 50, 18, 45], [C(8, 0.95), -16, -6, 56, 2, 42],
+  [C(9, 0.14), -8, 0, 28, 22, 34], [C(9, 0.4), 0, 4, 28, 40, 32], [C(9, 0.68), 8, 15, 30, 58, 32], [C(9, 0.95), 16, 32, 36, 68, 36],
+  [C(10, 0.35), 8, 8, 112, 24, 52], [C(10, 1), 6, 8, 122, 6, 55],
+];
+function cr(p0, p1, p2, p3, u) { const u2 = u * u, u3 = u2 * u; return 0.5 * (2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3); }
+function camAt(t) {
+  const n = CAM.length;
+  if (t <= CAM[0][0]) return CAM[0].slice(1);
+  if (t >= CAM[n - 1][0]) return CAM[n - 1].slice(1);
+  let i = 0; while (t >= CAM[i + 1][0]) i++;
+  const a = CAM[Math.max(0, i - 1)], b = CAM[i], c = CAM[i + 1], d = CAM[Math.min(n - 1, i + 2)];
+  const u = (t - b[0]) / (c[0] - b[0]);
+  const r = []; for (let k = 1; k <= 5; k++) r.push(cr(a[k], b[k], c[k], d[k], u)); return r;
+}
+
+/* ============================================================
+   State & UI
+   ============================================================ */
+const $ = id => document.getElementById(id);
+let t = 0, playing = false, speed = 1, clock = 0, lastChapter = -1;
+let showLabels = true, fogOn = true, freeCam = false, frozenBase = null;
+let yawOff = 0, pitchOff = 0, zoomMul = 1, lastInteract = -99;
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const segsEl = $('segs');
+const segs = CHAPTERS.map((c, i) => {
+  const b = document.createElement('button'); b.className = 'seg'; b.style.flex = D[i];
+  b.innerHTML = `<i class="fill"></i><span>${c.t}</span>`; b.title = `${c.no}　${c.t}`; b.setAttribute('aria-label', `${c.no} ${c.t}`);
+  b.addEventListener('click', () => seek(S[i] + 0.01)); segsEl.appendChild(b); return b;
+});
+const scrub = $('scrub'); scrub.max = TOTAL;
+scrub.addEventListener('input', () => { seek(+scrub.value); });
+function seek(v) { t = clamp(v, 0, TOTAL); if (t >= TOTAL) playing = false; syncPlay(); }
+function chapterOf(tt) { let i = 0; while (i < S.length - 1 && tt >= S[i + 1]) i++; return i; }
+function syncPlay() {
+  $('bPlay').setAttribute('aria-label', playing ? '一時停止' : '再生');
+  $('icoPlay').innerHTML = playing ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>';
+}
+function togglePlay() { if (t >= TOTAL - 0.01) t = 0; playing = !playing; syncPlay(); }
+$('bPlay').onclick = togglePlay;
+$('bNext').onclick = () => { const c = chapterOf(t); if (c < D.length - 1) seek(S[c + 1] + 0.01); };
+$('bPrev').onclick = () => { const c = chapterOf(t); seek(t - S[c] > 1.5 ? S[c] + 0.01 : S[Math.max(0, c - 1)] + 0.01); };
+document.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => {
+  speed = +b.dataset.sp; document.querySelectorAll('[data-sp]').forEach(x => x.setAttribute('aria-pressed', x === b));
+});
+const toggle = (id, fn) => { const b = $(id); b.onclick = () => { const v = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', v); fn(v); }; };
+toggle('bLab', v => { showLabels = v; labelsEl.classList.toggle('off', !v); });
+toggle('bFog', v => { fogOn = v; });
+toggle('bCam', v => { freeCam = v; frozenBase = v ? camAt(t) : null; if (!v) { yawOff = pitchOff = 0; zoomMul = 1; } });
+$('bFull').onclick = () => {
+  const d = document; try {
+    if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    else (app.requestFullscreen || app.webkitRequestFullscreen).call(app).catch?.(() => {});
+  } catch (e) {}
+};
+$('bGo').onclick = () => { $('intro').hidden = true; t = 0; playing = true; lastChapter = -1; syncPlay(); };
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.code === 'Space') { e.preventDefault(); if (!$('intro').hidden) $('bGo').click(); else togglePlay(); }
+  else if (e.code === 'ArrowRight') { e.preventDefault(); $('bNext').click(); }
+  else if (e.code === 'ArrowLeft') { e.preventDefault(); $('bPrev').click(); }
+});
+
+// pointer camera control
+const ptrs = new Map(); let pinch0 = 0, zoom0 = 1;
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); lastInteract = clock;
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); zoom0 = zoomMul; } });
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; lastInteract = clock;
+  if (ptrs.size === 1) { yawOff -= dx * 0.25; pitchOff = clamp(pitchOff + dy * 0.18, -40, 40); }
+  else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0 > 0) zoomMul = clamp(zoom0 * pinch0 / d, 0.3, 2.4); }
+});
+const up = e => { ptrs.delete(e.pointerId); pinch0 = 0; };
+canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoomMul = clamp(zoomMul * Math.exp(e.deltaY * 0.0012), 0.3, 2.4); lastInteract = clock; }, { passive: false });
+
+function fmtN(v) { return v >= 10000 ? (v / 10000).toFixed(1).replace(/\.0$/, '') + '万' : Math.round(v).toLocaleString('ja-JP'); }
+function fmtT(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+
+function setChapter(i, animateBig) {
+  const c = CHAPTERS[i];
+  $('capNo').textContent = c.no; $('capT').textContent = c.t; $('capP').textContent = c.p;
+  $('clock').textContent = c.clock; $('wx').textContent = c.wx;
+  const cap = $('cap'); cap.classList.remove('swap'); void cap.offsetWidth; cap.classList.add('swap');
+  segs.forEach((s, k) => s.classList.toggle('cur', k === i));
+  if (animateBig) {
+    const big = $('big'); $('bigNo').textContent = c.no; $('bigT').textContent = c.t;
+    big.classList.remove('show'); void big.offsetWidth; big.classList.add('show');
+  }
+}
+
+/* ============================================================
+   Frame
+   ============================================================ */
+const tmpV = new THREE.Vector3(), tmpC = new THREE.Color(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3();
+const yAxis = new THREE.Vector3(0, 1, 0), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const ev = {};
+let W = 0, Hh = 0;
+function resize() {
+  const w = app.clientWidth, h = app.clientHeight; if (w === W && h === Hh) return; W = w; Hh = h;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < h ? 55 : 40; camera.updateProjectionMatrix();
+  const px = h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) * renderer.getPixelRatio();
+  sparks.material.uniforms.uPx.value = smoke.material.uniforms.uPx.value = px;
+}
+function project(v, el, extra = '') {
+  pv.copy(v).project(camera);
+  if (pv.z > 1 || pv.x < -1.2 || pv.x > 1.2 || pv.y < -1.2 || pv.y > 1.2) { if (el._v !== 0) { el.style.display = 'none'; el._v = 0; } return false; }
+  if (el._v !== 1) { el.style.display = ''; el._v = 1; }
+  el.style.transform = `translate(${((pv.x + 1) / 2 * W).toFixed(1)}px,${((1 - pv.y) / 2 * Hh).toFixed(1)}px)${extra}`;
+  return true;
+}
+
+let prevNow = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - prevNow) / 1000); prevNow = now;
+  clock += dt;
+  resize();
+  if (playing) { t += dt * speed; if (t >= TOTAL) { t = TOTAL; playing = false; syncPlay(); } }
+
+  const ch = chapterOf(t);
+  if (ch !== lastChapter) { setChapter(ch, playing && !reduceMotion && $('intro').hidden); lastChapter = ch; }
+  segs.forEach((s, i) => { s.firstChild.style.width = (clamp((t - S[i]) / D[i], 0, 1) * 100) + '%'; });
+  if (document.activeElement !== scrub) scrub.value = t;
+  $('tc').textContent = `${fmtT(t)} / ${fmtT(TOTAL)}`;
+
+  // ---- environment
+  colAt(SKY, t, scene.background); scene.fog.color.copy(scene.background);
+  const fogAmt = fogOn ? keyVal(ENV.fog, t) : 0;
+  sun.intensity = keyVal(ENV.sun, t); hemi.intensity = keyVal(ENV.hemi, t); colAt(SUNC, t, sun.color);
+  const az = THREE.MathUtils.degToRad(keyVal(ENV.az, t)), el = THREE.MathUtils.degToRad(keyVal(ENV.el, t));
+  sun.position.set(15 + Math.sin(az) * Math.cos(el) * 120, Math.sin(el) * 120, 5 + Math.cos(az) * Math.cos(el) * 120);
+  fogMat.opacity = fogAmt * 0.55;
+  fogMat.color.copy(scene.background).lerp(tmpC.set('#ffffff'), 0.35);
+  for (const s of fogSprites) {
+    const u = s.userData; s.visible = fogAmt > 0.02;
+    let x = u.x + clock * u.sp; x = ((x + 40) % 100 + 100) % 100 - 40;
+    s.position.set(x, H(x, u.z) * 0.6 + u.y, u.z);
+  }
+
+  // ---- camera
+  let [tx, tz, dist, yaw, pitch] = freeCam && frozenBase ? frozenBase : camAt(t);
+  if (!freeCam && playing && clock - lastInteract > 3) { const k = Math.exp(-dt * 0.9); yawOff *= k; pitchOff *= k; zoomMul = 1 + (zoomMul - 1) * k; }
+  if (!reduceMotion) yaw += Math.sin(clock * 0.13) * 2.2;
+  yaw += yawOff; pitch = clamp(pitch + pitchOff, 8, 86); dist *= zoomMul;
+  const ty = H(tx, tz) * 0.7;
+  const yr = THREE.MathUtils.degToRad(yaw), pr = THREE.MathUtils.degToRad(pitch);
+  camera.position.set(tx + Math.sin(yr) * Math.cos(pr) * dist, ty + Math.sin(pr) * dist, tz + Math.cos(yr) * Math.cos(pr) * dist);
+  const gy = H(camera.position.x, camera.position.z) + 1.5; if (camera.position.y < gy) camera.position.y = gy;
+  camera.lookAt(tx, ty, tz);
+  camera.updateMatrixWorld();
+  labelsEl.classList.toggle('far', dist > 70);
+  scene.fog.density = (0.22 + 0.62 * fogAmt) / Math.max(30, dist);
+  const flagK = clamp(dist / 42, 0.75, 2.6);
+
+  // ---- rain
+  const rainAmt = keyVal(ENV.rain, t);
+  rain.visible = rainAmt > 0.02; rain.material.opacity = 0.32 * rainAmt;
+  if (rain.visible) {
+    const rp = rainGeo.attributes.position;
+    for (let i = 0; i < RAIN_N; i++) {
+      const [rx, rz, ry] = rainSeed[i]; const y = 30 - ((ry * 30 + clock * 22) % 30);
+      const x = tx + rx * 90 + y * 0.12, z = tz + rz * 90;
+      rp.setXYZ(i * 2, x, y, z); rp.setXYZ(i * 2 + 1, x + 0.06, y - 0.9, z);
+    }
+    rp.needsUpdate = true;
+  }
+
+  // ---- units
+  let sumE = 0, sumW = 0, sumD = 0;
+  for (const u of UNITS) {
+    const fr = unitFrac(u, t), side = sideAt(u, t), idle = inWin(u.idle, t);
+    const live = u.n * fr;
+    if (fr > 0.001) { if (side === 'E') sumE += live; else if (idle) sumD += live; else sumW += live; }
+    evalPath(u.path, t, ev);
+    const [fx, fz] = faceAt(u, t);
+    let ax = fx - ev.x, az2 = fz - ev.z; const al = Math.hypot(ax, az2) || 1; ax /= al; az2 /= al;
+    let dx = lerp(ax, ev.dx, ev.m), dz = lerp(az2, ev.dz, ev.m); const dl = Math.hypot(dx, dz);
+    if (dl < 0.2) { dx = ev.m > 0.5 ? ev.dx : ax; dz = ev.m > 0.5 ? ev.dz : az2; } else { dx /= dl; dz /= dl; }
+    const rx = -dz, rz = dx;
+    const routK = u.rout !== undefined ? ss(u.rout, u.rout + 2.5, t) : 0;
+    const vis = Math.ceil(u.blocks * clamp(fr, 0, 1) - 0.001);
+    const base = side === 'E' ? COL.E : idle ? COL.D : COL.W;
+    let fighting = 0;
+    for (const c of CLASHES) if (t > c.t0 && t < c.t1 && Math.hypot(c.x - ev.x, c.z - ev.z) < c.r + 3.2) { fighting = 1; break; }
+    for (let i = 0; i < u.blocks; i++) {
+      const idx = u.b0 + i;
+      if (i >= vis) { soldierMesh.setMatrixAt(idx, ZERO); continue; }
+      const l = u.lay[i];
+      let lx = lerp(l.lx, l.cx, ev.m), lz = lerp(l.lz, l.cz, ev.m);
+      const spread = 1 + routK * 1.3;
+      lx = lx * spread + l.jx * routK * 1.4; lz = lz * spread + l.jz * routK * 1.4;
+      if (fighting) { lx += Math.sin(clock * 7 + i * 1.7) * 0.04; lz += Math.cos(clock * 6 + i) * 0.05; }
+      const wx = ev.x + rx * lx - dx * lz, wz = ev.z + rz * lx - dz * lz;
+      pv.set(wx, H(wx, wz) + 0.15, wz);
+      q.setFromAxisAngle(yAxis, Math.atan2(dx, dz)); sc.setScalar(1 - routK * 0.25);
+      soldierMesh.setMatrixAt(idx, m4.compose(pv, q, sc));
+      tmpC.copy(base).multiplyScalar(l.v); if (routK > 0) tmpC.lerp(COL.R, routK * 0.55);
+      soldierMesh.setColorAt(idx, tmpC);
+    }
+    // banner & label
+    const sp = u.sprite; sp.visible = fr > 0.001;
+    if (sp.visible) {
+      const tex = flagTex(u.k, side); if (sp.material.map !== tex) { sp.material.map = tex; sp.material.needsUpdate = true; }
+      const fy = H(ev.x, ev.z) + 0.2;
+      sp.position.set(ev.x, fy, ev.z);
+      const s = u.flagScale * flagK; sp.scale.set(s * 0.5, s, 1);
+      sp.material.opacity = clamp(fr * 4, 0, 1) * (1 - routK * 0.35);
+      tmpV.set(ev.x, fy + s * 1.02, ev.z);
+      if (showLabels && project(tmpV, u.el, ' translate(-8%,-100%)')) {
+        const cc = u.cache;
+        if (cc.side !== side || cc.idle !== idle) { u.el.style.setProperty('--c', side === 'E' ? '#dc4a34' : idle ? '#6c83a3' : '#3a78dc'); cc.side = side; cc.idle = idle; }
+        const num = fmtN(Math.round(live / 100) * 100); if (cc.num !== num) { u.elNum.textContent = num; cc.num = num; }
+        const st = statusAt(u, t), stt = st ? st[1] : '', stk = st ? st[2] : '';
+        if (cc.st !== stt) { u.elSt.textContent = stt; u.elSt.dataset.k = stk; cc.st = stt; }
+        u.el.style.opacity = clamp(fr * 4, 0, 1);
+      }
+    } else if (u.el._v !== 0) { u.el.style.display = 'none'; u.el._v = 0; }
+    if (!showLabels && u.el._v !== 0) { u.el.style.display = 'none'; u.el._v = 0; }
+  }
+  soldierMesh.instanceMatrix.needsUpdate = true; soldierMesh.instanceColor.needsUpdate = true;
+
+  // forces bar
+  const tot = sumE + sumW + sumD || 1;
+  $('barE').style.width = (sumE / tot * 100) + '%'; $('barW').style.width = (sumW / tot * 100) + '%'; $('barD').style.width = (sumD / tot * 100) + '%';
+  $('numE').textContent = fmtN(Math.round(sumE / 100) * 100); $('numW').textContent = fmtN(Math.round(sumW / 100) * 100); $('numD').textContent = fmtN(Math.round(sumD / 100) * 100);
+
+  // arrows, rings, particles
+  for (const a of ARROWS) a.update(t, clock);
+  for (const r of RINGS) {
+    const on = t >= r.t0 && t < r.t1; r.m.visible = on; if (!on) continue;
+    const ph = (clock * 0.8) % 1; r.m.scale.setScalar(r.r * (0.6 + ph * 0.8));
+    r.m.material.opacity = (1 - ph) * ss(r.t0, r.t0 + 0.4, t) * (1 - ss(r.t1 - 0.5, r.t1, t));
+  }
+  updateParticles(t, clock);
+
+  // places & callouts
+  for (const p of PLACES) { if (showLabels) project(p.v, p.el, ' translate(-50%,-50%)'); }
+  for (const c of CALLOUTS) {
+    const on = t >= c.t0 && t < c.t1;
+    if (!on || !project(c.v, c.el)) { if (c.el._v !== 0) { c.el.style.display = 'none'; c.el._v = 0; } continue; }
+    c.el.style.opacity = ss(c.t0, c.t0 + 0.4, t) * (1 - ss(c.t1 - 0.4, c.t1, t));
+  }
+
+  renderer.render(scene, camera);
+}
+setChapter(0, false); lastChapter = 0; syncPlay();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
