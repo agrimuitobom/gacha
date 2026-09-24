@@ -45,7 +45,9 @@ async function open(temp, options = {}) {
   await page.waitForSelector('#result-screen:not(.hidden)');
   await page.waitForTimeout(300);
   const decided = await page.textContent('#result-items');
-  const outerIncluded = decided.includes('アウター') && !decided.includes('未登録');
+  // 空欄の行は破線枠。文言（未登録／不要／お休み）に依存せず構造で見る
+  const outerIncluded = await page.locator('#result-items li').first()
+    .evaluate((el) => !el.className.includes('border-dashed'));
   await page.click('[data-action="decide-outfit"]');
   await page.waitForTimeout(1500);
 

@@ -69,8 +69,12 @@ const draw = async (page) => {
   for (let i = 0; i < 10; i += 1) {
     await page.click('[data-action="regacha"]');
     await page.waitForTimeout(450);
-    const text = await page.textContent('#result-items');
-    if (!text.includes('未登録') && text.includes('アウター')) withOuter += 1;
+    // 文言ではなく構造で見る。空欄の行は破線枠（border-dashed）で描かれる。
+    // 以前は「未登録」という文字を代理指標にしていたが、空欄の理由を
+    // 言い分けるようにしたら成立しなくなった
+    const outerPicked = await page.locator('#result-items li').first()
+      .evaluate((el) => !el.className.includes('border-dashed'));
+    if (outerPicked) withOuter += 1;
   }
   ok('猛暑の日はアウターを出さない', withOuter === 0, `10回中 ${withOuter}回`);
   await context.close();
@@ -266,6 +270,67 @@ const draw = async (page) => {
   ok('全部お休みなら、未登録とは別の案内を出す',
     message.includes('すべてお休み中') && !message.includes('登録されていません'),
     message.trim());
+  await context.close();
+}
+
+/* ---------- 厚み欄の文言はカテゴリで変わる ---------- */
+{
+  // 靴に「生地の厚み」は馴染まない。ただし値そのものは抽選で使っているので
+  // （ブーツ 4 / スニーカー 2 の差が寒い日にブーツを出している）、
+  // 欄を消すのではなく靴の言葉に言い換える。
+  const { context, page, errors } = await open(20);
+  await page.click('[data-action="open-closet"]');
+  await page.waitForTimeout(1200);
+  await page.click('#content-tops [data-action="edit-item"]');
+  await page.waitForTimeout(900);
+
+  const read = () => page.evaluate(() => ({
+    label: document.getElementById('capture-warmth-label').textContent,
+    help: document.getElementById('capture-warmth-help').textContent,
+    options: [...document.getElementById('capture-warmth').options].map((o) => o.textContent),
+    value: document.getElementById('capture-warmth').value,
+  }));
+
+  const tops = await read();
+  ok('トップスでは「生地の厚み」のまま', tops.label === '生地の厚み', tops.label);
+  ok('トップスの選択肢は生地の言葉', tops.options[0].includes('薄手'), tops.options[0]);
+
+  await page.selectOption('#capture-warmth', '4');
+  await page.selectOption('#capture-category', 'shoes');
+  await page.waitForTimeout(300);
+  const shoes = await read();
+  ok('シューズでは「暖かさ」になる', shoes.label === '暖かさ', shoes.label);
+  ok('シューズの選択肢は靴の言葉',
+    shoes.options[0].includes('サンダル') && shoes.options[3].includes('ブーツ'),
+    `${shoes.options[0]} / ${shoes.options[3]}`);
+  ok('シューズでは説明文も靴向けになる', shoes.help.includes('靴'), shoes.help);
+  ok('言い換えても選択中の値は保たれる', shoes.value === '4', shoes.value);
+
+  await page.selectOption('#capture-category', 'outer');
+  await page.waitForTimeout(300);
+  const outer = await read();
+  ok('シューズ以外に戻すと文言も戻る',
+    outer.label === '生地の厚み' && outer.options[0].includes('薄手'),
+    `${outer.label} / ${outer.options[0]}`);
+  ok('戻しても選択中の値は保たれる', outer.value === '4', outer.value);
+
+  ok('厚み欄の切り替えでJSエラーが出ない', errors.length === 0, errors.slice(0, 2).join(' | '));
+  await context.close();
+}
+
+/* ---------- 空欄の理由を言い分ける ---------- */
+{
+  // 26°ならアウターは不要。登録があるのに「登録がありません」と出ていた
+  const { context, page } = await open(26);
+  await page.click('#gacha-btn');
+  await page.waitForSelector('#result-screen:not(.hidden)');
+  await page.waitForTimeout(900);
+
+  const text = await page.textContent('#result-items');
+  ok('暑い日は「不要」と出す（登録済みなのに未登録と言わない）',
+    text.includes('今日の気温なら無くても大丈夫') && !text.includes('クローゼットに登録がありません'),
+    text.replace(/\s+/g, ' ').slice(0, 70));
+  ok('バッジも「不要」になる', text.includes('不要'));
   await context.close();
 }
 

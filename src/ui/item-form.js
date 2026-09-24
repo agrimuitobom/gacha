@@ -7,6 +7,54 @@ import { $ } from './dom.js';
  * 入力項目が同じなうえ、片方だけ直すとずれていくため。
  */
 
+/**
+ * 「生地の厚み」欄の見せ方。カテゴリごとに言葉を替える。
+ *
+ * 靴に「生地の厚み」は馴染まないが、値そのものは抽選で使っている
+ * （ブーツ 4 / スニーカー 2 の差が、寒い日にブーツを出している）。
+ * 欄ごと消すと真冬にサンダル・真夏にブーツが出るようになるので、
+ * 消さずに靴の言葉へ言い換える。段階の意味は全カテゴリで共通
+ * （1 が薄い・涼しい、5 が厚い・暖かい）。
+ */
+const WARMTH_PRESETS = {
+  shoes: {
+    label: '暖かさ',
+    help: '気温に合う靴を選ぶために使います',
+    options: [
+      '1 - サンダル・メッシュ',
+      '2 - 薄手のスニーカー',
+      '3 - 普通',
+      '4 - ブーツ・厚手',
+      '5 - 裏ボア・冬用',
+    ],
+  },
+  default: {
+    label: '生地の厚み',
+    help: '気温に合うコーデを選ぶために使います',
+    options: [
+      '1 - とても薄手（真夏）',
+      '2 - 薄手',
+      '3 - 普通',
+      '4 - 厚手',
+      '5 - とても厚手（真冬）',
+    ],
+  },
+};
+
+/** カテゴリに合わせて厚み欄の文言を差し替える。選択中の値は保つ */
+export function applyWarmthPreset(category) {
+  const preset = WARMTH_PRESETS[category] || WARMTH_PRESETS.default;
+  $('capture-warmth-label').textContent = preset.label;
+  $('capture-warmth-help').textContent = preset.help;
+
+  const select = $('capture-warmth');
+  const selected = select.value;
+  for (const [index, option] of [...select.options].entries()) {
+    option.textContent = preset.options[index];
+  }
+  select.value = selected;
+}
+
 let mode = 'create';
 let editingId = null;
 let pendingImage = null;
@@ -23,6 +71,7 @@ function fill({ name, category, warmth, formality, rainSafe, available }) {
   $('capture-formality').value = String(formality ?? 1);
   $('capture-rainsafe').checked = rainSafe !== false;
   $('capture-available').checked = available !== false;
+  applyWarmthPreset($('capture-category').value);
 }
 
 function showPreview({ imageUrl, colorClass }) {

@@ -25,8 +25,7 @@ import {
 import { startCamera, stopCamera, takePhoto } from './ui/camera.js';
 import {
   openForCreate, openForEdit, readForm, focusName,
-  getMode, getEditingId, getPendingImage, clearPendingImage,
-} from './ui/item-form.js';
+  getMode, getEditingId, getPendingImage, clearPendingImage, applyWarmthPreset } from './ui/item-form.js';
 import {
   initPwa, promptInstall, dismissInstall, showIosInstallHelp, reloadForUpdate,
 } from './ui/pwa.js';
@@ -331,6 +330,12 @@ function registerEventHandlers() {
       console.error(`アクション "${target.dataset.action}" の実行に失敗しました:`, err);
       showToast('処理に失敗しました', { iconName: 'alert-circle', iconColor: 'text-amber-400' });
     });
+  });
+
+  // カテゴリを変えたら、厚み欄の文言もその場で合わせる
+  // （靴のときだけ「暖かさ」になる）
+  $('capture-category')?.addEventListener('change', (event) => {
+    applyWarmthPreset(event.target.value);
   });
 
   document.addEventListener('keydown', (event) => {
