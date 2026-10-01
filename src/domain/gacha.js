@@ -173,6 +173,26 @@ export function buildMessage(context, missing, {
 }
 
 /**
+ * その枠が空になっている理由。
+ *
+ * 以前はどの理由でも「クローゼットに登録がありません」と出していた。
+ * アウターは気温次第で出さないので、暑い日に登録済みのアウターがあっても
+ * 「登録がありません」と表示され、事実と違っていた。
+ *
+ *   picked     … 選ばれた
+ *   not-needed … 登録はあるが、今日は出番が無い（アウターのみ）
+ *   resting    … 登録はあるが、全部お休み中
+ *   none       … 登録そのものが無い
+ */
+export function slotStateFor({ picked, registered, available, optional }) {
+  if (picked) return 'picked';
+  if (registered === 0) return 'none';
+  if (available === 0) return 'resting';
+  // 着られるものがあるのに選ばれなかったのは、今日は要らないから
+  return optional ? 'not-needed' : 'none';
+}
+
+/**
  * コーデを1組引く。
  * @param {{ items: object[], weather: object|null, schedules: object[], random?: () => number }} input
  */
@@ -222,6 +242,17 @@ export function drawOutfit({ items, weather, schedules, recentlyWorn, random = M
 
   return {
     ...picks,
+    slotStates: Object.fromEntries(
+      CATEGORIES.map((category) => [
+        category,
+        slotStateFor({
+          picked: Boolean(picks[category]),
+          registered: registered[category].length,
+          available: byCategory[category].length,
+          optional: category === 'outer',
+        }),
+      ])
+    ),
     message: buildMessage(context, missing, {
       outerPicked: Boolean(outer),
       outerUnavailable: !hasOuter,
