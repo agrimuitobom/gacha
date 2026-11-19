@@ -158,11 +158,12 @@
         <button type="button" data-action="open-camera" aria-label="服を撮影して追加する" class="w-11 h-11 -mr-2 flex items-center justify-center text-blue-700 active:bg-blue-50 rounded-full transition-colors" data-icon="plus" data-icon-class="w-6 h-6"></button>
       </div>
 
-      <div class="flex border-b border-gray-200 px-4" role="tablist" aria-label="アイテムの種類">
-        <button type="button" role="tab" id="tab-outer" aria-selected="false" aria-controls="content-outer" data-action="switch-tab" data-tab="outer" tabindex="-1" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">アウター</button>
-        <button type="button" role="tab" id="tab-tops" aria-selected="true" aria-controls="content-tops" data-action="switch-tab" data-tab="tops" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-gray-900 text-gray-900 transition-colors">トップス</button>
-        <button type="button" role="tab" id="tab-bottoms" aria-selected="false" aria-controls="content-bottoms" data-action="switch-tab" data-tab="bottoms" tabindex="-1" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">ボトムス</button>
-        <button type="button" role="tab" id="tab-shoes" aria-selected="false" aria-controls="content-shoes" data-action="switch-tab" data-tab="shoes" tabindex="-1" class="flex-1 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-gray-600 transition-colors">シューズ</button>
+      <div class="flex border-b border-gray-200 px-2" role="tablist" aria-label="アイテムの種類">
+        <button type="button" role="tab" id="tab-outer" aria-selected="false" aria-controls="content-outer" data-action="switch-tab" data-tab="outer" tabindex="-1" class="flex-1 min-w-0 py-3 text-xs whitespace-nowrap font-bold border-b-2 border-transparent text-gray-600 transition-colors">アウター</button>
+        <button type="button" role="tab" id="tab-tops" aria-selected="true" aria-controls="content-tops" data-action="switch-tab" data-tab="tops" class="flex-1 min-w-0 py-3 text-xs whitespace-nowrap font-bold border-b-2 border-gray-900 text-gray-900 transition-colors">トップス</button>
+        <button type="button" role="tab" id="tab-bottoms" aria-selected="false" aria-controls="content-bottoms" data-action="switch-tab" data-tab="bottoms" tabindex="-1" class="flex-1 min-w-0 py-3 text-xs whitespace-nowrap font-bold border-b-2 border-transparent text-gray-600 transition-colors">ボトムス</button>
+        <button type="button" role="tab" id="tab-shoes" aria-selected="false" aria-controls="content-shoes" data-action="switch-tab" data-tab="shoes" tabindex="-1" class="flex-1 min-w-0 py-3 text-xs whitespace-nowrap font-bold border-b-2 border-transparent text-gray-600 transition-colors">シューズ</button>
+        <button type="button" role="tab" id="tab-accessory" aria-selected="false" aria-controls="content-accessory" data-action="switch-tab" data-tab="accessory" tabindex="-1" class="flex-1 min-w-0 py-3 text-xs whitespace-nowrap font-bold border-b-2 border-transparent text-gray-600 transition-colors">アクセサリー</button>
       </div>
 
       <div class="flex-1 overflow-y-auto no-scrollbar p-4 bg-gray-50">
@@ -170,6 +171,7 @@
         <ul id="content-tops" role="tabpanel" aria-labelledby="tab-tops" class="grid grid-cols-2 gap-4 list-none"></ul>
         <ul id="content-bottoms" role="tabpanel" aria-labelledby="tab-bottoms" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
         <ul id="content-shoes" role="tabpanel" aria-labelledby="tab-shoes" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
+        <ul id="content-accessory" role="tabpanel" aria-labelledby="tab-accessory" class="grid grid-cols-2 gap-4 list-none hidden"></ul>
       </div>
     </section>
 
@@ -239,6 +241,7 @@
             <option value="tops">トップス</option>
             <option value="bottoms">ボトムス</option>
             <option value="shoes">シューズ</option>
+            <option value="accessory">アクセサリー・小物</option>
           </select>
         </div>
 
@@ -302,6 +305,14 @@
             <span data-icon="cloud" data-icon-class="w-4 h-4 text-blue-700"></span> データの保存先
           </h3>
           <div id="account-body" class="flex flex-col gap-3"></div>
+        </section>
+
+        <!-- 予定の通知（src/ui/notifications.js が描画） -->
+        <section aria-labelledby="notify-heading" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-3">
+          <h3 id="notify-heading" class="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+            <span data-icon="bell" data-icon-class="w-4 h-4 text-rose-700"></span> 予定の通知
+          </h3>
+          <div id="notify-body" class="flex flex-col gap-3"></div>
         </section>
 
         <section aria-labelledby="about-heading" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col gap-2">

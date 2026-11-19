@@ -48,6 +48,9 @@ jobs:
       - name: CSP とセキュリティヘッダ
         run: npm run test:csp
 
+      - name: 予定の通知の判定とアクセサリーの抽選
+        run: npm run test:reminders
+
       - name: E2E（機能・アクセシビリティ・PWA）
         run: npm run test:e2e
 
@@ -86,6 +89,9 @@ jobs:
 
       - name: Firestore の読み取り件数
         run: npm run test:read-cost:ci
+
+      - name: 予定のプッシュ通知（画面 → 保存 → 送信 → 表示）
+        run: npm run test:push
 
       - name: E2E（Firebase 経路・エミュレータ）
         run: npm run test:e2e:firebase

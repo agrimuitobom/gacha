@@ -17,6 +17,7 @@ import { refreshHomeWidget } from './ui/home.js';
 import { renderCloset, switchTab, handleTabKeydown } from './ui/closet.js';
 import { renderResult } from './ui/result.js';
 import { renderSettings, linkAccount, signOutAccount } from './ui/settings.js';
+import { renderNotifications, turnOnNotifications, turnOffNotifications } from './ui/notifications.js';
 import {
   renderCalendar, renderSchedules, addScheduleInputRow, resetScheduleInputRows,
   removeScheduleInputRow, readScheduleInputRows, moveCalendarMonth, resetCalendarToToday,
@@ -309,8 +310,10 @@ const actions = {
   },
   'open-settings': async (el) => {
     navigateTo('settings-screen', { origin: el });
-    await renderSettings();
+    await Promise.all([renderSettings(), renderNotifications()]);
   },
+  'enable-push': () => turnOnNotifications(),
+  'disable-push': () => turnOffNotifications(),
   'link-account': () => linkAccount(),
   'sign-out-account': () => signOutAccount(),
   'install-app': () => promptInstall(),

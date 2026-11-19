@@ -23,3 +23,10 @@ export const isFirebaseConfigured = REQUIRED_KEYS.every(
 );
 
 export const useEmulator = env.VITE_USE_FIREBASE_EMULATOR === 'true';
+
+/**
+ * 予定のプッシュ通知に使う VAPID 公開鍵。秘密鍵とは対になっていて、
+ * 秘密鍵は送信側（GitHub Actions のシークレット）にだけ置く。
+ * 公開鍵は名前のとおり公開してよい。未設定なら通知の設定欄に案内を出す。
+ */
+export const vapidPublicKey = env.VITE_VAPID_PUBLIC_KEY || '';

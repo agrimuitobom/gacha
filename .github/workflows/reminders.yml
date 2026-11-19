@@ -1,0 +1,78 @@
+# 予定のリマインド通知を送る定期実行。
+#
+# Cloud Functions の定期実行は Blaze プラン（従量課金）が要るので、
+# Spark プランのまま動かすために GitHub Actions から送っている。
+# 公開リポジトリなので実行時間は課金されない。
+#
+# 有効にするには README の「予定の通知」を参照（Variables の REMINDERS_ENABLED=true）。
+# 未設定のあいだは何もしない（5分おきに失敗メールが届くのを避けるため）。
+name: Reminders
+
+on:
+  schedule:
+    # GitHub の定期実行は混雑時に数分〜十数分遅れる。通知の選択肢を 15 分前以上にしているのはそのため
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '送らずに、送る予定のものだけ表示する'
+        type: boolean
+        default: false
+
+# 前の回が終わる前に次の回が始まると、同じ通知を二重に送りうる
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  send:
+    name: 予定の通知を送る
+    if: vars.REMINDERS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            reminders
+            src/domain
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: reminders/package-lock.json
+
+      # アプリ本体の依存（Playwright・Vite など）は要らないので、送信用の2つだけ入れる
+      - name: 依存関係をインストール
+        working-directory: reminders
+        run: npm ci --no-audit --no-fund
+
+      - name: サービスアカウントを書き出す
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::シークレット FIREBASE_SERVICE_ACCOUNT が設定されていません"
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: 送信
+        working-directory: reminders
+        run: node send.mjs
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SITE_URL: ${{ vars.VITE_SITE_URL }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+
+      - name: 後片付け
+        if: always()
+        run: rm -f "$RUNNER_TEMP/service-account.json"

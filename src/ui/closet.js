@@ -22,7 +22,8 @@ export function itemThumbnail(item, sizeClass) {
 }
 
 function warmthLabel(item) {
-  return `厚み ${item.warmth}/5 ・ きれいめ ${item.formality}/3${item.rainSafe === false ? ' ・ 雨に弱い' : ''}`;
+  const word = item.category === 'accessory' ? '季節' : '厚み';
+  return `${word} ${item.warmth}/5 ・ きれいめ ${item.formality}/3${item.rainSafe === false ? ' ・ 雨に弱い' : ''}`;
 }
 
 function closetCard(item) {

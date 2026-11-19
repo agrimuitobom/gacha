@@ -7,12 +7,13 @@
  * "ガチャ" として成立させるのが狙い。
  */
 
-/** 表示順。上に着るものから並べる */
-export const CATEGORIES = ['outer', 'tops', 'bottoms', 'shoes'];
+/** 表示順。上に着るものから並べ、小物は最後に添える */
+export const CATEGORIES = ['outer', 'tops', 'bottoms', 'shoes', 'accessory'];
 
 /**
  * 必ず1点は選ぶカテゴリ。
  * アウターは気温次第で出さないので、ここには含めない。
+ * アクセサリーは持っていない人も多いので、無くても欠品扱いにしない。
  */
 export const REQUIRED_CATEGORIES = ['tops', 'bottoms', 'shoes'];
 
@@ -21,7 +22,14 @@ export const CATEGORY_LABELS = {
   tops: 'トップス',
   bottoms: 'ボトムス',
   shoes: 'シューズ',
+  accessory: 'アクセサリー',
 };
+
+/**
+ * 登録が無ければ、提案結果に枠ごと出さないカテゴリ。
+ * アクセサリーを使わない人に、毎回「未登録」と見せても仕方がない。
+ */
+export const HIDDEN_WHEN_UNREGISTERED = ['accessory'];
 
 /** 気温から必要な生地の厚み(1-5)を求める */
 export function targetWarmthFor(temp) {
@@ -68,7 +76,7 @@ export const RECENT_WINDOW_DAYS = 4;
 
 /**
  * 直近のコーデ記録から「何日前に着たか」を引ける Map を作る。
- * @param {{date: string, outerId, topsId, bottomsId, shoesId}[]} outfits
+ * @param {{date: string, outerId, topsId, bottomsId, shoesId, accessoryId}[]} outfits
  * @param {string} todayKey
  */
 export function buildRecentlyWorn(outfits, todayKey) {
@@ -78,7 +86,7 @@ export function buildRecentlyWorn(outfits, todayKey) {
   for (const outfit of outfits) {
     const daysAgo = Math.round((today - Date.parse(`${outfit.date}T00:00:00`)) / 86400000);
     if (daysAgo < 0 || daysAgo >= RECENT_WINDOW_DAYS) continue;
-    for (const id of [outfit.outerId, outfit.topsId, outfit.bottomsId, outfit.shoesId]) {
+    for (const id of CATEGORIES.map((category) => outfit[`${category}Id`])) {
       if (!id) continue;
       // 同じ服を複数回着ていたら、直近の方を採用する
       if (!worn.has(id) || worn.get(id) > daysAgo) worn.set(id, daysAgo);
@@ -238,6 +246,9 @@ export function drawOutfit({ items, weather, schedules, recentlyWorn, random = M
     tops: byCategory.tops.length ? weightedPick(byCategory.tops, innerContext, random) : null,
     bottoms: byCategory.bottoms.length ? weightedPick(byCategory.bottoms, context, random) : null,
     shoes: byCategory.shoes.length ? weightedPick(byCategory.shoes, context, random) : null,
+    // 小物は登録があれば1点添える。マフラーと日傘のように季節で向き不向きが
+    // はっきりしているので、服と同じく気温・予定・雨でスコアを付けて引く
+    accessory: byCategory.accessory.length ? weightedPick(byCategory.accessory, context, random) : null,
   };
 
   return {

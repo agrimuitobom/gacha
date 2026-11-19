@@ -104,6 +104,8 @@ export default defineConfig(({ mode }) => {
         ],
       },
       workbox: {
+        // プッシュ通知の受け取りは手書き（public/push-sw.js）。生成される SW に取り込む
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,webp,webmanifest}'],
         // Firebase SDK は 600KB 超あり、未設定なら読み込まれもしない。
         // 初回訪問のプリキャッシュから外し、実際に使われたときだけ保存する。

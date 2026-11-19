@@ -135,6 +135,32 @@ await check('コーデ記録に未知のフィールドは書けない', assertF
     decidedAt: 1757600000000, createdAt: 1757600000000, hatId: 'x' }
 )));
 
+/* ---- アクセサリー ---- */
+await check('アクセサリーを登録できる',
+  assertSucceeds(setDoc(itemRef(alice, ALICE, 'acc1'), { ...validItem, category: 'accessory' })));
+await check('アクセサリーを含むコーデ記録を保存できる', assertSucceeds(setDoc(
+  doc(alice, 'users', ALICE, 'outfits', 'o4'),
+  { date: '2026-09-14', outerId: null, topsId: 'item1', bottomsId: null, shoesId: null,
+    accessoryId: 'acc1', decidedAt: 1757600000000, createdAt: 1757600000000 }
+)));
+
+/* ---- 予定の通知先 ---- */
+const validPush = {
+  endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: 'BPx', auth: 'au',
+  leadMinutes: 30, timeZone: 'Asia/Tokyo', createdAt: 1757600000000, updatedAt: 1757600000000,
+};
+const pushRef = (db, uid = ALICE, id = 'p1') => doc(db, 'users', uid, 'pushSubscriptions', id);
+await check('本人は通知先を登録できる', assertSucceeds(setDoc(pushRef(alice), validPush)));
+await check('他人の通知先は読めない', assertFails(getDoc(pushRef(bob))));
+await check('通知先の endpoint は https のみ',
+  assertFails(setDoc(pushRef(alice, ALICE, 'p2'), { ...validPush, endpoint: 'http://evil.example/x' })));
+await check('通知のタイミングは選択肢の中だけ',
+  assertFails(setDoc(pushRef(alice, ALICE, 'p3'), { ...validPush, leadMinutes: 1 })));
+await check('通知先に未知のフィールドは書けない',
+  assertFails(setDoc(pushRef(alice, ALICE, 'p4'), { ...validPush, uid: BOB })));
+await check('送信記録は利用者から書けない', assertFails(setDoc(
+  doc(alice, 'users', ALICE, 'reminderLog', 's1'), { key: 'x' })));
+
 await check('日付形式が不正な予定は拒否', assertFails(setDoc(
   doc(alice, 'users', ALICE, 'schedules', 'bad'),
   { date: '2026/9/12', time: '19:00', title: 'x', createdAt: 1757600000000 }
