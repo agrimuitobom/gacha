@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
  * CHROME_PATH が設定されていればそれを使い、未設定なら Playwright が
  * 管理するブラウザを使う。CI では後者（npx playwright install chromium）。
  */
-export function launchChromium({ fakeCamera = false } = {}) {
+export function launchChromium({ fakeCamera = false, fullChromium = false } = {}) {
   const executablePath = process.env.CHROME_PATH || undefined;
   const args = ['--no-sandbox'];
   if (fakeCamera) {
@@ -15,6 +15,9 @@ export function launchChromium({ fakeCamera = false } = {}) {
   }
   return chromium.launch({
     ...(executablePath ? { executablePath } : {}),
+    // 既定の headless shell は通知の許可を受け付けない版がある（CI の Chrome 153 で発生）。
+    // 通知を扱うテストだけ、本体の Chromium を新ヘッドレスモードで使う
+    ...(fullChromium && !executablePath ? { channel: 'chromium' } : {}),
     args,
   });
 }

@@ -70,9 +70,9 @@ const fakeKeys = {
 
 /* ---------- ブラウザ ---------- */
 
-const browser = await launchChromium();
+const browser = await launchChromium({ fullChromium: true });
 const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 420, height: 880 } });
-await context.grantPermissions(['notifications'], { origin: new URL(BASE_URL).origin });
+await context.grantPermissions(['notifications']);
 await context.route('**/api.open-meteo.com/**', (r) => r.fulfill({
   status: 200, contentType: 'application/json',
   body: JSON.stringify({
@@ -105,8 +105,25 @@ await page.goto(BASE_URL);
 await page.waitForFunction(() => navigator.serviceWorker?.controller || null, null, { timeout: 15000 }).catch(() => {});
 await page.waitForTimeout(2500);
 
+const consoleLines = [];
+page.on('console', (msg) => consoleLines.push(`${msg.type()}: ${msg.text()}`));
+
 await page.click('[data-action="open-settings"]');
-await page.waitForSelector('#notify-body [data-action="enable-push"]', { timeout: 10000 });
+const appeared = await page.waitForSelector('#notify-body [data-action="enable-push"]', { timeout: 10000 })
+  .then(() => true).catch(() => false);
+if (!appeared) {
+  // 何が表示されたかを出さないと、CI でだけ落ちたときに原因が分からない
+  const env = await page.evaluate(() => ({
+    text: document.getElementById('notify-body')?.textContent.trim(),
+    push: 'PushManager' in window,
+    notification: 'Notification' in window ? Notification.permission : 'none',
+    secure: window.isSecureContext,
+    ua: navigator.userAgent,
+  }));
+  console.error('通知欄の表示:', JSON.stringify(env, null, 2));
+  console.error(consoleLines.slice(-20).join('\n'));
+  process.exit(1);
+}
 ok('設定画面に「通知をオンにする」が出る', true);
 
 await page.selectOption('#notify-lead', '30');
