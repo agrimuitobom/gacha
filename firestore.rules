@@ -35,7 +35,7 @@ service cloud.firestore {
                'category', 'name', 'imageUrl', 'imagePath', 'colorClass',
                'warmth', 'formality', 'rainSafe', 'available', 'createdAt'
              ])
-             && data.category in ['outer', 'tops', 'bottoms', 'shoes']
+             && data.category in ['outer', 'tops', 'bottoms', 'shoes', 'accessory']
              && isText(data.name, 40)
              && isInt(data.warmth, 1, 5)
              && isInt(data.formality, 1, 3)
@@ -60,7 +60,7 @@ service cloud.firestore {
     }
 
     function validOutfit(data) {
-      return data.keys().hasOnly(['date', 'outerId', 'topsId', 'bottomsId', 'shoesId', 'decidedAt', 'createdAt'])
+      return data.keys().hasOnly(['date', 'outerId', 'topsId', 'bottomsId', 'shoesId', 'accessoryId', 'decidedAt', 'createdAt'])
              && isDateKey(data.date)
              // フィールドが無いドキュメント（outerId を持たない古い記録など）でも
              // 弾かれないよう、get で既定値を与えてから検証する。
@@ -69,8 +69,26 @@ service cloud.firestore {
              && isOptionalId(data.get('topsId', null))
              && isOptionalId(data.get('bottomsId', null))
              && isOptionalId(data.get('shoesId', null))
+             && isOptionalId(data.get('accessoryId', null))
              && isTimestampMs(data.decidedAt)
              && isTimestampMs(data.createdAt);
+    }
+
+    // 予定の通知先（ブラウザの PushSubscription）。端末ごとに1件。
+    // 送信は GitHub Actions が Admin SDK で読むので、ルールの対象外。
+    function validPushSubscription(data) {
+      return data.keys().hasOnly([
+               'endpoint', 'p256dh', 'auth', 'leadMinutes', 'timeZone', 'createdAt', 'updatedAt'
+             ])
+             && data.endpoint is string
+             && data.endpoint.size() <= 1000
+             && data.endpoint.matches('^https://.+')
+             && isText(data.p256dh, 200)
+             && isText(data.auth, 100)
+             && data.leadMinutes in [15, 30, 60, 120]
+             && isText(data.timeZone, 64)
+             && isTimestampMs(data.createdAt)
+             && isTimestampMs(data.updatedAt);
     }
 
     match /users/{userId}/closetItems/{itemId} {
@@ -87,6 +105,14 @@ service cloud.firestore {
       allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) && validOutfit(request.resource.data);
     }
+
+    match /users/{userId}/pushSubscriptions/{subscriptionId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validPushSubscription(request.resource.data);
+    }
+
+    // 送信済みの記録（reminderLog）は送信側だけが使う。
+    // 下の「上記以外は拒否」に落ちるので、利用者からは読み書きできない。
 
     // アプリ自身の状態（サンプル投入済みフラグなど）。
     // 利用者のデータではないので、形だけ検証して素通しさせる。

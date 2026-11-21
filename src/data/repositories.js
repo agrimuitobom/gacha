@@ -177,6 +177,7 @@ export const outfitRepo = {
       topsId: outfit.tops?.id || null,
       bottomsId: outfit.bottoms?.id || null,
       shoesId: outfit.shoes?.id || null,
+      accessoryId: outfit.accessory?.id || null,
       decidedAt: Date.now(),
       createdAt: existing?.createdAt || Date.now(),
     });

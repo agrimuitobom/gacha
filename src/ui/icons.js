@@ -1,6 +1,6 @@
 import {
   createElement,
-  AlertCircle, Calendar, Camera, CameraOff, Check, CheckCircle2, ChevronLeft, ChevronRight,
+  AlertCircle, Bell, BellOff, Calendar, Camera, CameraOff, Check, CheckCircle2, ChevronLeft, ChevronRight,
   Cloud, CloudFog, CloudLightning, CloudOff, CloudRain, CloudSun, Clock, ExternalLink,
   LogIn, LogOut, MapPin, MinusCircle, Pencil, Plus, PlusCircle, RefreshCcw, Settings, ShieldCheck,
   ShoppingBag, Smartphone, Snowflake, Sparkles, Sun, Trash2, TriangleAlert, WifiOff, Wand2, X,
@@ -13,6 +13,8 @@ import {
  */
 const REGISTRY = {
   'alert-circle': AlertCircle,
+  bell: Bell,
+  'bell-off': BellOff,
   calendar: Calendar,
   camera: Camera,
   'camera-off': CameraOff,

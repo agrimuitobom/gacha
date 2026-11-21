@@ -2,6 +2,7 @@ import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { accountRepo } from '../data/account.js';
 import { showToast } from './toast.js';
+import { disablePush } from '../data/push.js';
 
 /**
  * 設定画面のうち「データの保存先」の部分。
@@ -178,6 +179,9 @@ export async function linkAccount() {
 
 export async function signOutAccount() {
   try {
+    // 通知の送り先はアカウントに紐づいている。残したままだと、
+    // ログアウトした端末にそのアカウントの予定が届き続ける
+    await disablePush().catch((err) => console.warn('通知を解除できませんでした:', err));
     await accountRepo.signOut();
     showToast('ログアウトしました。再読み込みします', { iconName: 'log-out' });
     // サインインし直しとデータの読み直しが要るので、まっさらから始める

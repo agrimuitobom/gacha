@@ -1,7 +1,7 @@
 import { h, $ } from './dom.js';
 import { state } from '../state.js';
 import { itemThumbnail } from './closet.js';
-import { CATEGORIES, CATEGORY_LABELS } from '../domain/gacha.js';
+import { CATEGORIES, CATEGORY_LABELS, HIDDEN_WHEN_UNREGISTERED } from '../domain/gacha.js';
 
 /**
  * 空欄の見せ方。理由ごとに言い分ける。
@@ -42,8 +42,11 @@ function resultRow(category, item, slotState) {
 export function renderResult(outfit) {
   $('result-message').textContent = outfit.message;
   $('result-items').replaceChildren(
-    ...CATEGORIES.map((category) =>
-      resultRow(category, outfit[category], outfit.slotStates?.[category]))
+    ...CATEGORIES
+      // アクセサリーを登録していない人には、枠ごと出さない
+      .filter((category) => !(HIDDEN_WHEN_UNREGISTERED.includes(category)
+        && outfit.slotStates?.[category] === 'none'))
+      .map((category) => resultRow(category, outfit[category], outfit.slotStates?.[category]))
   );
   state.currentOutfit = outfit;
 }

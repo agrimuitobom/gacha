@@ -1,0 +1,14 @@
+{
+  "name": "coordi-gacha-reminders",
+  "private": true,
+  "type": "module",
+  "description": "予定のリマインド通知を送る（GitHub Actions の定期実行から呼ぶ）",
+  "scripts": {
+    "send": "node send.mjs",
+    "vapid": "web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "web-push": "^4.0.0"
+  }
+}

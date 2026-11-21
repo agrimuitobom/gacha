@@ -5,8 +5,9 @@
 ## できること
 
 - **コーデガチャ** — 気温・降水確率・その日の予定から手持ちの服をスコアリングし、加重ランダムで1組引きます
-- **マイクローゼット** — 服を撮影して登録（アウター / トップス / ボトムス / シューズ）。あとから編集でき、洗濯中などは一時的に外せます
+- **マイクローゼット** — 服を撮影して登録（アウター / トップス / ボトムス / シューズ / アクセサリー）。あとから編集でき、洗濯中などは一時的に外せます
 - **カレンダー＆予定** — 予定を登録すると、その日のコーデ提案に反映されます。決めたコーデもここから見返せます
+- **予定の通知** — 予定が近づいたらスマホにプッシュ通知します（Firebase 同期時。設定は「[予定の通知](#予定の通知)」）
 - **服屋を探す** — ホームから Google マップで周辺の服屋を検索します
 - **PWA** — ホーム画面に追加してアプリとして起動でき、オフラインでも動きます
 
@@ -43,6 +44,8 @@ npm run dev
 | `npm run test:settings` | 設定画面とアカウント表示の検証 |
 | `npm run test:editing` | アウターの出し分けと編集機能の検証 |
 | `npm run test:history` | コーデ履歴と距離表示の検証 |
+| `npm run test:reminders` | 通知を送る時刻の判定とアクセサリーの抽選の検証（サーバ不要） |
+| `npm run test:push` | 予定の通知を画面→保存→送信→表示まで通しで検証（エミュレータ込みで自動） |
 | `npm run test:auth-degrade` | 接続できないときの表示の検証（エミュレータ込みで自動） |
 | `npm run test:rules` | セキュリティルールの検証（`npm run emulators` が前提） |
 | `npm run test:rules:ci` | 同上（エミュレータの起動・停止まで自動） |
@@ -89,6 +92,7 @@ GitHub Actions から自動でデプロイする場合は次節を参照して�
 | `verify.yml` | 他から呼ばれる | ビルドと全テスト（再利用可能ワークフロー） |
 | `ci.yml` | PR・main 以外への push | 検証 + PR ごとのプレビューURL発行 |
 | `deploy.yml` | main への push・手動実行 | 検証 + ルールと Hosting の本番デプロイ |
+| `reminders.yml` | 5分おき・手動実行 | 予定の通知を送る（`REMINDERS_ENABLED=true` のときだけ。[予定の通知](#予定の通知)） |
 
 検証が通らなければデプロイは実行されません（`needs: verify`）。
 
@@ -101,6 +105,7 @@ Firebase コンソール > プロジェクトの設定 > **サービスアカウ
 - **Firebase Hosting 管理者** — Hosting のデプロイ
 - **Cloud Datastore インデックス管理者** / **Firebase Rules 管理者** — Firestore・Storage のルール反映
 - **サービス アカウント ユーザー**
+- **Cloud Datastore ユーザー** — 予定の通知を使う場合のみ（送信側が予定を読むため）
 
 > `firebase init hosting:github` を使うと、サービスアカウントの作成とシークレット登録まで自動で行えます。ただしルールのデプロイ権限は別途付与が必要です。
 
@@ -164,7 +169,7 @@ PR を作ると `ci.yml` が検証したうえでプレビューURLを発行し�
 
 ```
 users/{uid}/closetItems/{itemId}
-  category: 'outer' | 'tops' | 'bottoms' | 'shoes'
+  category: 'outer' | 'tops' | 'bottoms' | 'shoes' | 'accessory'
   name: string (1-40)
   imageUrl: string | null      … Cloud Storage の downloadURL
   imagePath: string | null     … users/{uid}/closet/{itemId}.jpg
@@ -183,9 +188,21 @@ users/{uid}/schedules/{scheduleId}
 
 users/{uid}/outfits/{outfitId}
   date: 'YYYY-MM-DD'
-  outerId / topsId / bottomsId / shoesId: string | null
+  outerId / topsId / bottomsId / shoesId / accessoryId: string | null
   decidedAt: number
   createdAt: number
+
+users/{uid}/pushSubscriptions/{subscriptionId}   … 予定の通知先。端末ごとに1件
+  endpoint: string            … ブラウザの PushSubscription の送り先（https のみ）
+  p256dh / auth: string       … 暗号化に使う端末側の鍵
+  leadMinutes: 15 | 30 | 60 | 120
+  timeZone: string            … 'Asia/Tokyo' など
+  createdAt / updatedAt: number
+
+users/{uid}/reminderLog/{scheduleId}_{subscriptionId}   … 送信済みの記録（送信側専用・利用者は読み書き不可）
+  key: string                 … 'YYYY-MM-DD HH:MM 分'。日時を変えた予定には送り直す
+  date: string
+  sentAt: number
 
 users/{uid}/meta/{docId}
   seededAt: number     … サンプル投入済みフラグ
@@ -197,7 +214,7 @@ users/{uid}/meta/{docId}
 
 ### セキュリティルール
 
-`firestore.rules` / `storage.rules` では、所有者チェックに加えてフィールドの型・範囲・`hasOnly()` による未知フィールドの排除まで行っています。`npm run test:rules` でエミュレータ相手に検証できます（26項目）。
+`firestore.rules` / `storage.rules` では、所有者チェックに加えてフィールドの型・範囲・`hasOnly()` による未知フィールドの排除まで行っています。`npm run test:rules` でエミュレータ相手に検証できます（43項目）。
 
 > **注意**: Cloud Storage の `getDownloadURL()` が返す URL にはアクセストークンが含まれており、**URL を知っていれば未認証でも画像を取得できます**。公開されて困る画像を扱う場合は、ダウンロード URL を配らず `getBlob()` 経由に切り替えてください。
 
@@ -273,11 +290,82 @@ Firestore のローカルキャッシュ（`persistentLocalCache`）を有効に
 | 未登録 | クローゼットにトップスが登録されていません… |
 | 全部お休み中 | トップスがすべてお休み中です。クローゼットから戻すと提案できます |
 
+### アクセサリー
+
+帽子・マフラー・バッグ・時計などを「アクセサリー」として登録できます。登録があれば提案に1点添えます。
+
+| 項目 | 扱い |
+| --- | --- |
+| 欠品扱い | しない。持っていない人も多いため、未登録なら提案結果に枠ごと出さない |
+| 「生地の厚み」欄 | 「季節感」と言い換える（1 = 真夏向け〜3 = 季節を問わない〜5 = 防寒） |
+| 抽選 | 服と同じスコアで引く。寒い日はマフラー、暑い日はサングラスが出やすい |
+| 最近使ったもの・お休み中 | 服と同じ（減点・除外） |
+
+クローゼットのタブが5つになったため、タブの文字は幅で大きくしないようにしています（`sm:text-sm` を外した）。枠の幅は最大 400px なので、14px にすると「アクセサリー」がはみ出します。
+
 ### 登録内容の編集
 
 クローゼットのカード左上、予定の行の鉛筆アイコンから編集できます。アイテムの登録画面は新規登録（撮影後）と編集で共用しています。入力項目が同じで、片方だけ直すとずれていくためです。
 
 写真の撮り直しは編集では扱いません。削除して撮り直してください。
+
+## 予定の通知
+
+予定が近づくと、スマホにプッシュ通知を送ります。設定画面の「予定の通知」から端末ごとにオンにします。
+
+| 予定 | 通知するタイミング |
+| --- | --- |
+| 時刻あり | 15分前 / 30分前（既定） / 1時間前 / 2時間前 から選択 |
+| 終日 | 当日の朝7時ごろ（12時を過ぎたら送らない） |
+
+通知を開くとカレンダーが、Android の「コーデを引く」ボタンからはガチャが開きます。
+
+### 仕組み
+
+```
+スマホ（PWA）                 Firestore                       GitHub Actions（5分おき）
+  通知をオンにする ──保存──▶ users/{uid}/pushSubscriptions ◀──読む── reminders/send.mjs
+                              users/{uid}/schedules        ◀──読む──   │ 近づいた予定を判定
+  Service Worker ◀──────────── Web Push（VAPID 署名・暗号化）──────────┘ reminderLog に記録
+  （public/push-sw.js が表示）
+```
+
+**送信を GitHub Actions に置いている理由**: Firebase の定期実行（Cloud Functions + Cloud Scheduler）は Blaze プラン（従量課金・カード登録）が要ります。このアプリは Spark プランで運用しているため、公開リポジトリなら実行時間が無料の GitHub Actions から送っています。Firebase Cloud Messaging の SDK も使わず、標準の Web Push で直接送るので、アプリのバンドルは増えません。
+
+判定は `src/domain/reminders.js` にまとめ、アプリ（選択肢の表示）と送信側の両方から使っています。
+
+### 制約
+
+| 制約 | 内容 |
+| --- | --- |
+| 遅れ | GitHub の定期実行は混雑時に数分〜十数分遅れます。選択肢を15分前以上にしているのはそのためです。始まった後には送りません |
+| iPhone / iPad | iOS 16.4 以降で、**ホーム画面に追加したアプリから**オンにしたときだけ届きます（Safari のタブでは不可） |
+| 同期が必要 | Firebase で同期しているときだけ使えます。ブラウザ内保存だけの構成では、送信側が予定を読めません |
+| 60日ルール | 公開リポジトリで60日間コミットが無いと、GitHub が定期実行を自動で止めます。止まったら Actions タブから再度有効にしてください |
+
+### 有効にする手順
+
+1. **鍵を作る**（VAPID。公開鍵と秘密鍵の組）
+
+```bash
+cd reminders && npm install && npm run vapid
+```
+
+2. **GitHub に登録する**（Settings > Secrets and variables > Actions）
+
+| 種類 | 名前 | 値 |
+| --- | --- | --- |
+| Variables | `VITE_VAPID_PUBLIC_KEY` | 手順1の Public Key |
+| Secrets | `VAPID_PRIVATE_KEY` | 手順1の Private Key |
+| Variables | `REMINDERS_ENABLED` | `true`（定期実行のスイッチ。未設定の間は何もしない） |
+
+3. **サービスアカウントにロールを足す** — デプロイ用の `FIREBASE_SERVICE_ACCOUNT` をそのまま使います。Google Cloud コンソールの IAM で、このサービスアカウントに **Cloud Datastore ユーザー**（Firestore の読み書き）を追加してください。デプロイ用のロールだけでは予定を読めません。
+
+4. **デプロイし直す** — 公開鍵はビルド時に埋め込むので、main にマージ（または Deploy を手動実行）します。
+
+5. **動作確認** — Actions タブの「Reminders」を「Run workflow」から `dry_run` にチェックを入れて実行すると、送らずに「送る予定のもの」だけをログに出します。
+
+ローカルで試す場合は `.env` に `VITE_VAPID_PUBLIC_KEY` を書いてビルドします。秘密鍵は `.env` に書かないでください（`VITE_` で始まる値はすべてバンドルに埋め込まれます）。
 
 ## 横向きの表示
 
@@ -551,20 +639,27 @@ src/
     firebase-app.js       SDK 初期化・認証
     repositories.js       アプリが触る唯一のデータ層
     account.js            アカウントの状態と Google 連携
+    push.js               予定の通知の購読・解除
   domain/
     gacha.js              抽選ロジック（DOM非依存）
+    reminders.js          予定の通知を送る時刻の判定（アプリと送信側で共用）
     weather.js            天気取得（DOM非依存）
     dates.js              日付ユーティリティ
     geo.js                Google マップ検索の URL を組み立てる
   ui/                   画面ごとの描画とフォーカス管理
     pwa.js              インストール導線・更新通知・オフライン表示
     settings.js         設定画面（データの保存先）
+    notifications.js    設定画面（予定の通知）
     find-shops.js       「服屋を探す」のリンク先を現在地に合わせる
     item-form.js        アイテムの登録・編集フォーム（両モード共用）
 .github/workflows/
   verify.yml            ビルドと全テスト（再利用可能）
   ci.yml                PR 検証 + プレビューデプロイ
   deploy.yml            本番デプロイ
+  reminders.yml         予定の通知を送る（5分おき）
+public/push-sw.js       プッシュ通知の表示（生成される Service Worker に取り込む）
+reminders/
+  send.mjs              予定の通知の送信（firebase-admin + web-push だけに依存）
 scripts/
   check-env.js          デプロイ前の設定チェック
   serve-and-run.js      プレビュー起動 → テスト実行 → 後片付け
@@ -576,6 +671,9 @@ tests/
   csp.mjs               CSP とセキュリティヘッダの検証
   contrast.mjs          コントラスト比（WCAG AA）の検証
   css-coverage.mjs      Tailwind のクラスが生成されているかの検証
+  reminders.mjs         通知を送る時刻の判定
+  accessory.mjs         アクセサリーの抽選
+  push.mjs              予定の通知（画面 → 保存 → 送信 → 表示）
 ```
 
 `domain/` は DOM に依存しないため、単体でテストできます。

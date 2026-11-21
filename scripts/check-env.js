@@ -19,7 +19,7 @@ const REQUIRED = [
   'VITE_FIREBASE_APP_ID',
 ];
 
-const RECOMMENDED = ['VITE_FIREBASE_MESSAGING_SENDER_ID', 'VITE_SITE_URL'];
+const RECOMMENDED = ['VITE_FIREBASE_MESSAGING_SENDER_ID', 'VITE_SITE_URL', 'VITE_VAPID_PUBLIC_KEY'];
 
 /**
  * 値ごとの形式チェック。
@@ -46,6 +46,11 @@ const FORMAT_RULES = {
   VITE_FIREBASE_MESSAGING_SENDER_ID: {
     test: (value) => /^\d+$/.test(value),
     hint: '数字のみ。例: 123456789012',
+  },
+  // 予定の通知を使う場合だけ必要。web-push の公開鍵は base64url で 87 文字
+  VITE_VAPID_PUBLIC_KEY: {
+    test: (value) => /^[A-Za-z0-9_-]{80,100}$/.test(value),
+    hint: '`cd reminders && npm run vapid` で作った Public Key（クォート無し）',
   },
   VITE_SITE_URL: {
     test: (value) => /^https?:\/\/[^\s"']+$/.test(value),
