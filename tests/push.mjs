@@ -70,9 +70,9 @@ const fakeKeys = {
 
 /* ---------- ブラウザ ---------- */
 
-const browser = await launchChromium();
+const browser = await launchChromium({ fullChromium: true });
 const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 420, height: 880 } });
-await context.grantPermissions(['notifications'], { origin: new URL(BASE_URL).origin });
+await context.grantPermissions(['notifications']);
 await context.route('**/api.open-meteo.com/**', (r) => r.fulfill({
   status: 200, contentType: 'application/json',
   body: JSON.stringify({
